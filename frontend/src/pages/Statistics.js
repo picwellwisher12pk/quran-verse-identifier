@@ -23,10 +23,11 @@ const Statistics = () => {
     }
   };
 
-  const calculateCoverage = () => {
-    if (!stats || stats.total_verses === 0) return 0;
-    return (stats.verses_with_audio / stats.total_verses) * 100;
-  };
+  const totalVerses = stats?.total_verses ?? 0;
+  const versesWithAudio = stats?.verses_with_audio ?? stats?.fingerprinted_verses ?? 0;
+  const totalSurahs = stats?.total_surahs ?? 114;
+  const coverage = stats?.coverage_percentage ?? (totalVerses > 0 ? (versesWithAudio / totalVerses) * 100 : 0);
+  const pendingVerses = Math.max(0, totalVerses - versesWithAudio);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Never';
@@ -81,8 +82,6 @@ const Statistics = () => {
     );
   }
 
-  const coverage = calculateCoverage();
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -112,7 +111,7 @@ const Statistics = () => {
                       Total Surahs
                     </p>
                     <p className="text-3xl font-bold text-white">
-                      {stats.total_surahs}
+                      {totalSurahs}
                     </p>
                   </div>
                   <div className="text-4xl opacity-80">📚</div>
@@ -126,7 +125,7 @@ const Statistics = () => {
                       Total Verses
                     </p>
                     <p className="text-3xl font-bold text-white">
-                      {stats.total_verses.toLocaleString()}
+                      {totalVerses.toLocaleString()}
                     </p>
                   </div>
                   <div className="text-4xl opacity-80">📖</div>
@@ -140,7 +139,7 @@ const Statistics = () => {
                       With Audio
                     </p>
                     <p className="text-3xl font-bold text-white">
-                      {stats.verses_with_audio.toLocaleString()}
+                      {versesWithAudio.toLocaleString()}
                     </p>
                   </div>
                   <div className="text-4xl opacity-80">🎵</div>
@@ -175,7 +174,7 @@ const Statistics = () => {
                       Verses with Audio Fingerprints
                     </span>
                     <span className="text-sm text-gray-600">
-                      {stats.verses_with_audio} / {stats.total_verses}
+                      {versesWithAudio} / {totalVerses}
                     </span>
                   </div>
                   <div className="progress-bar">
@@ -201,7 +200,7 @@ const Statistics = () => {
                       </h3>
                     </div>
                     <p className="text-2xl font-bold text-green-600 mb-1">
-                      {stats.verses_with_audio.toLocaleString()}
+                      {versesWithAudio.toLocaleString()}
                     </p>
                     <p className="text-sm text-green-700">
                       Verses that can be identified from audio
@@ -216,7 +215,7 @@ const Statistics = () => {
                       </h3>
                     </div>
                     <p className="text-2xl font-bold text-orange-600 mb-1">
-                      {(stats.total_verses - stats.verses_with_audio).toLocaleString()}
+                      {pendingVerses.toLocaleString()}
                     </p>
                     <p className="text-sm text-orange-700">
                       Verses waiting for audio fingerprinting

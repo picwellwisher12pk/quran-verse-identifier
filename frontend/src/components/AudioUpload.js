@@ -4,6 +4,7 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import AudioPlayer from './audio/AudioPlayer';
 import Visualizer from './audio/Visualizer';
 import { apiService } from '../services/api';
+import logger, { LOG_CATEGORIES } from '../utils/logger';
 import { FiMic, FiSearch, FiSquare, FiUploadCloud } from 'react-icons/fi';
 
 const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploadError }) => {
@@ -63,7 +64,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
   const initAndStartSTT = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      console.warn('[STT] SpeechRecognition not available in this browser environment.');
+      logger.warn(LOG_CATEGORIES.STT, 'SpeechRecognition is not supported in this browser. Live transcript will not be available.');
       return;
     }
 
@@ -72,11 +73,25 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
         try { recognitionRef.current.abort(); } catch (e) {}
       }
 
+      logger.info(LOG_CATEGORIES.STT, 'Initializing browser SpeechRecognition', {
+        lang: 'ar-SA',
+        continuous: true,
+        interimResults: true,
+      });
+
       const recognition = new SpeechRecognition();
       recognition.lang = 'ar-SA';
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        logger.info(LOG_CATEGORIES.STT, 'SpeechRecognition started listening for Arabic recitation');
+      };
+
+      recognition.onspeechstart = () => {
+        logger.debug(LOG_CATEGORIES.STT, 'Speech audio detected by speech recognizer');
+      };
 
       recognition.onresult = (event) => {
         let text = '';
@@ -84,16 +99,28 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
           text += event.results[i][0].transcript;
         }
         if (text.trim()) {
+          const lastResult = event.results[event.results.length - 1];
+          logger.info(LOG_CATEGORIES.STT, `Transcript received: "${text.trim()}"`, {
+            isFinal: lastResult.isFinal,
+            confidence: lastResult[0]?.confidence,
+          });
           setLiveTranscript(text);
         }
       };
 
       recognition.onerror = (err) => {
-        if (err.error === 'no-speech') return;
-        console.warn('[STT] Error:', err.error);
+        if (err.error === 'no-speech') {
+          logger.debug(LOG_CATEGORIES.STT, 'SpeechRecognition no-speech timeout (normal)');
+          return;
+        }
+        logger.warn(LOG_CATEGORIES.STT, `SpeechRecognition error [${err.error}]`, {
+          error: err.error,
+          message: err.message,
+        });
       };
 
       recognition.onend = () => {
+        logger.info(LOG_CATEGORIES.STT, `SpeechRecognition ended${isRecording ? ' (attempting auto-restart)' : ''}`);
         if (isRecording) {
           try { recognition.start(); } catch (e) {}
         }
@@ -102,7 +129,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
       recognition.start();
       recognitionRef.current = recognition;
     } catch (err) {
-      console.warn('[STT] Could not start speech recognition:', err);
+      logger.error(LOG_CATEGORIES.STT, 'Could not start browser speech recognition', err);
     }
   }, [isRecording]);
 
@@ -142,9 +169,21 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     if (!file) return;
 
     if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|webm|m4a|ogg|aac|flac)$/i)) {
-      onUploadError?.(new Error('Please select a valid audio file (MP3, WAV, WebM, M4A).'));
+      const err = new Error('Please select a valid audio file (MP3, WAV, WebM, M4A).');
+      logger.warn(LOG_CATEGORIES.UI, 'Invalid file type rejected', {
+        fileName: file.name,
+        fileType: file.type,
+      });
+      onUploadError?.(err);
       return;
     }
+
+    logger.info(LOG_CATEGORIES.UI, 'Audio file selected for identification', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileSizeBytes: `${(file.size / 1024).toFixed(1)} KB`,
+      fileType: file.type,
+    });
 
     setSelectedFile(file);
     setCurrentAudioUrl(URL.createObjectURL(file));
@@ -180,39 +219,65 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
 
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
+      logger.info(LOG_CATEGORIES.UI, 'File dropped onto upload zone', {
+        fileName: files[0].name,
+        fileSize: files[0].size,
+      });
       handleFileSelect(files[0]);
     }
   }, [isRecording, uploading, handleFileSelect]);
 
   // Handle audio identification upload
   const handleAudioUpload = useCallback(async () => {
-    if (!selectedFile && !liveTranscript.trim()) return;
+    if (!selectedFile && !liveTranscript.trim()) {
+      logger.warn(LOG_CATEGORIES.UI, 'handleAudioUpload aborted: No audio file and no transcript present');
+      return;
+    }
 
     try {
       setUploading(true);
-      onUploadStart?.({
+      const uploadMetadata = {
         type: 'audio',
         fileName: selectedFile?.name || 'Microphone Recitation',
         fileSize: selectedFile?.size,
+        hasAudioFile: Boolean(selectedFile),
         transcript: liveTranscript.trim(),
-      });
+      };
+
+      logger.info(LOG_CATEGORIES.UI, 'Starting verse identification process', uploadMetadata);
+      onUploadStart?.(uploadMetadata);
 
       const response = await apiService.identifyVerse(
         selectedFile,
         (percentCompleted) => {
+          logger.debug(LOG_CATEGORIES.API, `Upload progress: ${percentCompleted}%`);
           onUploadProgress?.(percentCompleted);
         },
         liveTranscript
       );
 
+      logger.info(LOG_CATEGORIES.UI, 'Identification search returned response', {
+        success: response?.success,
+        matchesCount: response?.matches?.length || 0,
+        processingTime: response?.processing_time,
+        topCandidate: response?.matches?.[0]
+          ? {
+              surah: `${response.matches[0].verse?.surah_name_english} (${response.matches[0].verse?.surah_number}:${response.matches[0].verse?.ayah_number})`,
+              confidence: response.matches[0].confidence,
+              source: response.matches[0].recognition_source,
+            }
+          : null,
+      });
+
       setUploading(false);
       onUploadSuccess?.(response, selectedFile);
     } catch (error) {
       if (error?.message === 'Request was canceled' || error?.message?.includes('canceled')) {
+        logger.info(LOG_CATEGORIES.API, 'Verse identification request was canceled by user');
         setUploading(false);
         return;
       }
-      console.error('Upload error:', error);
+      logger.error(LOG_CATEGORIES.UI, 'Verse identification request failed: ' + (error.message || 'Unknown error'), error);
       setUploading(false);
       onUploadError?.(error);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link } from 'react-router-dom';
 import { FiDownload } from 'react-icons/fi';
 import { apiService } from '../services/api';
 

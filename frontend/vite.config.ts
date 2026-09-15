@@ -1,6 +1,5 @@
 import { defineConfig, transformWithEsbuild } from 'vite';
 import react from '@vitejs/plugin-react';
-import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 
 export default defineConfig({
   plugins: [
@@ -14,9 +13,11 @@ export default defineConfig({
         });
       },
     },
-    tanstackStart(),
     react(),
   ],
+  define: {
+    'process.env': {},
+  },
   optimizeDeps: {
     esbuildOptions: {
       loader: {

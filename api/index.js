@@ -21,8 +21,11 @@ let readyPromise = null;
 export default async function handler(req, res) {
   if (!readyPromise) {
     readyPromise = (async () => {
+      console.log("[Vercel Serverless] Initializing Quran database & matcher services...");
+      const start = Date.now();
       await initServices();
       await fastify.ready();
+      console.log(`[Vercel Serverless] Services initialized successfully in ${Date.now() - start}ms.`);
     })();
   }
   await readyPromise;

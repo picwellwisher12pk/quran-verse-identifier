@@ -1,6 +1,7 @@
 import axios from 'axios';
+import logger, { LOG_CATEGORIES } from '../utils/logger';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
+const API_BASE_URL = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) || import.meta.env?.VITE_API_URL || '/api';
 
 // Create a base axios instance without timeout for requests that need custom timeouts
 const api = axios.create({
@@ -15,30 +16,50 @@ const cancelTokenSources = new Map();
 
 api.interceptors.request.use(
   (config) => {
-    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    config._startTime = Date.now();
+    logger.info(LOG_CATEGORIES.API, `[HTTP OUT] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, {
+      method: config.method,
+      url: config.url,
+      baseURL: config.baseURL,
+      hasHeaders: Boolean(config.headers),
+    });
     return config;
   },
   (error) => {
+    logger.error(LOG_CATEGORIES.API, `[HTTP REQ ERROR] Request build failed`, error);
     return Promise.reject(error);
   }
 );
 
 api.interceptors.response.use(
   (response) => {
-    console.log(`API Response: ${response.status} ${response.config.url}`);
+    const elapsed = response.config?._startTime ? `${Date.now() - response.config._startTime}ms` : 'unknown';
+    logger.info(LOG_CATEGORIES.API, `[HTTP IN ${response.status}] ${response.config?.method?.toUpperCase()} ${response.config?.url} (${elapsed})`, {
+      status: response.status,
+      statusText: response.statusText,
+      elapsed,
+      dataSummary: typeof response.data === 'object' ? {
+        keys: Object.keys(response.data || {}),
+        success: response.data?.success,
+        matchesCount: response.data?.matches?.length,
+      } : null,
+    });
     return response;
   },
   (error) => {
-    console.error('API Error:', error.response?.data || error.message);
+    const elapsed = error.config?._startTime ? `${Date.now() - error.config._startTime}ms` : 'unknown';
+    const status = error.response?.status;
+    const url = error.config?.url || 'unknown-url';
+    const serverDetail = error.response?.data?.detail || error.response?.data?.message || error.response?.data;
 
-    // Handle common errors
-    if (error.response?.status === 404) {
-      console.error('Resource not found');
-    } else if (error.response?.status === 500) {
-      console.error('Server error');
-    } else if (!error.response) {
-      console.error('Network error - API server may be offline');
-    }
+    logger.error(LOG_CATEGORIES.API, `[HTTP ERR ${status || 'NETWORK'}] ${url} (${elapsed}): ${error.message}`, {
+      status,
+      serverDetail,
+      code: error.code,
+      elapsed,
+      isNetworkError: !error.response && Boolean(error.request),
+      isTimeout: error.code === 'ECONNABORTED',
+    });
 
     return Promise.reject(error);
   }
@@ -48,6 +69,7 @@ export const apiService = {
   async identifyVerse(audioFile, onUploadProgress, transcript = null) {
     // Cancel any existing identify requests
     if (cancelTokenSources.has('identify')) {
+      logger.info(LOG_CATEGORIES.API, 'Cancelling previous in-flight /identify request');
       cancelTokenSources.get('identify').cancel('New request initiated');
       cancelTokenSources.delete('identify');
     }
@@ -58,12 +80,26 @@ export const apiService = {
 
     try {
       const formData = new FormData();
+      let fileSummary = null;
       if (audioFile) {
         formData.append('file', audioFile);
+        fileSummary = {
+          name: audioFile.name,
+          sizeBytes: audioFile.size,
+          sizeKB: `${(audioFile.size / 1024).toFixed(1)} KB`,
+          type: audioFile.type,
+        };
       }
       if (transcript && transcript.trim()) {
         formData.append('transcript', transcript.trim());
       }
+
+      logger.info(LOG_CATEGORIES.API, 'Dispatching POST /api/identify', {
+        hasAudioFile: Boolean(audioFile),
+        file: fileSummary,
+        hasTranscript: Boolean(transcript && transcript.trim()),
+        transcriptText: transcript ? `"${transcript.trim()}"` : null,
+      });
 
       const response = await api.post('/identify', formData, {
         headers: {
@@ -86,7 +122,7 @@ export const apiService = {
       return response.data;
     } catch (error) {
       if (axios.isCancel(error)) {
-        console.log('Request canceled:', error.message);
+        logger.info(LOG_CATEGORIES.API, 'Request canceled: ' + error.message);
         throw new Error('Request was canceled');
       }
       throw this.handleError(error);

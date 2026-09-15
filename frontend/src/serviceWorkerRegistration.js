@@ -1,5 +1,6 @@
 export function registerServiceWorker() {
-  if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  const isProd = import.meta.env ? import.meta.env.PROD : process.env.NODE_ENV === 'production';
+  if ('serviceWorker' in navigator && isProd) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
         .register('/service-worker.js')

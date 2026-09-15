@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import About from './pages/About';
 import Statistics from './pages/Statistics';
 import Marketing from './pages/Marketing';
+import DebugLogsModal from './components/DebugLogsModal';
 import './styles/index.css';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           </Routes>
         </main>
         {/* Footer hidden per user request */}
+        <DebugLogsModal />
       </div>
     </Router>
   );

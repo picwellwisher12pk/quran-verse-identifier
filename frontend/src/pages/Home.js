@@ -3,6 +3,7 @@ import AudioUpload from '../components/AudioUpload';
 import VerseResults from '../components/VerseResults';
 import IdentifyingProgress from '../components/IdentifyingProgress';
 import { apiService } from '../services/api';
+import logger, { LOG_CATEGORIES } from '../utils/logger';
 
 const Home = () => {
   const [results, setResults] = useState(null);
@@ -13,6 +14,7 @@ const Home = () => {
   const [error, setError] = useState(null);
 
   const handleUploadStart = (info = {}) => {
+    logger.info(LOG_CATEGORIES.UI, 'Home transition -> IDENTIFYING (uploading & matching)', info);
     setLoading(true);
     setUploadInfo(info);
     setUploadProgress(0);
@@ -25,6 +27,23 @@ const Home = () => {
   };
 
   const handleUploadSuccess = (uploadResults, file) => {
+    const matchesCount = uploadResults?.matches?.length || 0;
+    logger.info(LOG_CATEGORIES.MATCH, `Home transition -> RESULTS: ${matchesCount} verse candidate(s) found`, {
+      success: uploadResults?.success,
+      matchesCount,
+      processingTime: uploadResults?.processing_time,
+      candidates: uploadResults?.matches?.map((m) => ({
+        verse: `${m.verse?.surah_name_english} (${m.verse?.surah_number}:${m.verse?.ayah_number})`,
+        arabic: m.verse?.arabic_text?.substring(0, 30) + '...',
+        confidence: m.confidence,
+        source: m.recognition_source,
+      })),
+    });
+
+    if (matchesCount === 0) {
+      logger.warn(LOG_CATEGORIES.MATCH, 'Backend returned 0 matches: No verse candidate met confidence threshold.');
+    }
+
     setLoading(false);
     setResults(uploadResults);
     setOriginalFile(file);
@@ -32,19 +51,23 @@ const Home = () => {
   };
 
   const handleUploadError = (uploadError, file) => {
+    const msg = uploadError?.message || 'An error occurred while identifying the verse.';
+    logger.error(LOG_CATEGORIES.MATCH, `Home transition -> ERROR: ${msg}`, uploadError);
     setLoading(false);
-    setError(uploadError?.message || 'An error occurred while identifying the verse.');
+    setError(msg);
     setResults(null);
     setOriginalFile(file);
   };
 
   const handleCancel = () => {
+    logger.info(LOG_CATEGORIES.UI, 'Home transition -> CANCELLED by user');
     apiService.cancelAllRequests();
     setLoading(false);
     setError(null);
   };
 
   const handleNewSearch = () => {
+    logger.info(LOG_CATEGORIES.UI, 'Home transition -> IDLE (New Search requested)');
     setResults(null);
     setOriginalFile(null);
     setError(null);

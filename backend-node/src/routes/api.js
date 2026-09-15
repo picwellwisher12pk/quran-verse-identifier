@@ -69,7 +69,10 @@ export async function apiRoutes(fastify, options) {
         transcript = req.body.transcript || "";
       }
 
+      console.log(`[API:Identify] Processing request: fileName="${fileName}", fileSize=${fileSize} bytes, transcript="${transcript || ''}"`);
+
       if (!fileSize && (!transcript || !transcript.trim())) {
+        console.warn("[API:Identify] Rejected: Neither audio file nor transcript provided");
         reply.code(400);
         return {
           success: false,
@@ -81,7 +84,9 @@ export async function apiRoutes(fastify, options) {
       let audioMatches = [];
 
       if (transcript && transcript.trim()) {
+        const textMatchStart = Date.now();
         textMatches = arabicMatcher.matchText(transcript.trim(), 5, 0.35);
+        console.log(`[API:Identify] Arabic text matcher finished in ${Date.now() - textMatchStart}ms: ${textMatches.length} candidates found`);
       }
 
       const combinedMap = new Map();
@@ -124,6 +129,7 @@ export async function apiRoutes(fastify, options) {
         .slice(0, 5);
 
       const processingTime = Math.round((Date.now() - startTime) / 10) / 100;
+      console.log(`[API:Identify] Completed in ${processingTime}s: ${sortedMatches.length} candidate(s)${sortedMatches[0] ? ` (Top: ${sortedMatches[0].verse.surah_name_english} ${sortedMatches[0].verse.surah_number}:${sortedMatches[0].verse.ayah_number} - confidence ${sortedMatches[0].confidence})` : ''}`);
 
       return {
         success: sortedMatches.length > 0,
@@ -140,7 +146,7 @@ export async function apiRoutes(fastify, options) {
       };
     } catch (error) {
       const processingTime = Math.round((Date.now() - startTime) / 10) / 100;
-      fastify.log.error(error);
+      console.error(`[API:Identify ERROR] Failed in ${processingTime}s:`, error);
       reply.code(500);
       return {
         success: false,

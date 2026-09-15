@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import logger, { LOG_CATEGORIES } from '../utils/logger';
 
 export const useAudioRecorder = (options = {}) => {
   const { onRecordingComplete } = options;
@@ -20,7 +21,10 @@ export const useAudioRecorder = (options = {}) => {
 
   // Enumerate available audio input devices
   const refreshAudioDevices = useCallback(async () => {
-    if (!navigator.mediaDevices?.enumerateDevices) return;
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      logger.warn(LOG_CATEGORIES.RECORDER, 'navigator.mediaDevices.enumerateDevices is not available');
+      return;
+    }
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const mics = devices
@@ -29,9 +33,10 @@ export const useAudioRecorder = (options = {}) => {
           deviceId: d.deviceId,
           label: d.label || `Microphone ${index + 1}`
         }));
+      logger.info(LOG_CATEGORIES.RECORDER, `Found ${mics.length} audio input device(s)`, mics);
       setAudioDevices(mics);
     } catch (err) {
-      console.warn('Error enumerating audio devices:', err);
+      logger.warn(LOG_CATEGORIES.RECORDER, 'Error enumerating audio devices', err);
     }
   }, []);
 
@@ -107,6 +112,11 @@ export const useAudioRecorder = (options = {}) => {
         audioConstraints.deviceId = { exact: selectedDeviceId };
       }
 
+      logger.info(LOG_CATEGORIES.RECORDER, 'Requesting microphone audio stream', {
+        audioConstraints,
+        selectedDeviceId: selectedDeviceId || 'default',
+      });
+
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -115,7 +125,10 @@ export const useAudioRecorder = (options = {}) => {
       } catch (devErr) {
         // Fallback to default audio input if exact device is not accessible
         if (selectedDeviceId) {
-          console.warn('Selected mic failed, falling back to default:', devErr);
+          logger.warn(LOG_CATEGORIES.RECORDER, 'Selected mic failed, falling back to default device', {
+            failedDeviceId: selectedDeviceId,
+            error: devErr.message,
+          });
           stream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
@@ -131,6 +144,18 @@ export const useAudioRecorder = (options = {}) => {
       }
       
       streamRef.current = stream;
+      const audioTracks = stream.getAudioTracks().map((track) => ({
+        id: track.id,
+        label: track.label,
+        enabled: track.enabled,
+        muted: track.muted,
+        readyState: track.readyState,
+        settings: track.getSettings ? track.getSettings() : {},
+      }));
+
+      logger.info(LOG_CATEGORIES.RECORDER, 'Microphone stream successfully acquired', {
+        audioTracks,
+      });
       
       // Refresh audio devices now that permissions have been granted
       refreshAudioDevices();
@@ -163,31 +188,51 @@ export const useAudioRecorder = (options = {}) => {
       if (mimeType) {
         mediaRecorderOptions.mimeType = mimeType;
       }
+
+      logger.info(LOG_CATEGORIES.RECORDER, 'Initializing MediaRecorder', {
+        selectedMimeType: mimeType || 'browser-default',
+        audioBitsPerSecond: mediaRecorderOptions.audioBitsPerSecond,
+        audioContextState: audioContext.state,
+        sampleRate: audioContext.sampleRate,
+      });
+
       const mediaRecorder = new MediaRecorder(stream, mediaRecorderOptions);
       
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          logger.debug(LOG_CATEGORIES.RECORDER, `Audio chunk received: ${event.data.size} bytes (total chunks: ${audioChunksRef.current.length})`);
         }
+      };
+
+      mediaRecorder.onerror = (mrErr) => {
+        logger.error(LOG_CATEGORIES.RECORDER, 'MediaRecorder encountered an error', mrErr);
       };
       
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start(50);
       setIsRecording(true);
+      logger.info(LOG_CATEGORIES.RECORDER, 'MediaRecorder recording started successfully');
       
       return { audioContext, analyser };
       
     } catch (err) {
-      console.error('Error starting recording:', err);
       let errorMessage = 'Failed to start recording';
+      let errorType = err.name || 'UnknownError';
       
-      if (err.name === 'NotAllowedError') {
-        errorMessage = 'Microphone access was denied';
-      } else if (err.name === 'NotFoundError') {
-        errorMessage = 'No microphone found';
-      } else if (err.name === 'NotReadableError') {
-        errorMessage = 'Microphone is already in use';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = 'Microphone access was denied by the browser or operating system';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage = 'No microphone device was found on this system';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMessage = 'Microphone is already in use by another application or blocked by the system';
       }
+
+      logger.error(LOG_CATEGORIES.RECORDER, `Recording start failed [${errorType}]: ${errorMessage}`, {
+        errorName: err.name,
+        errorMessage: err.message,
+        stack: err.stack,
+      });
       
       setError(errorMessage);
       await cleanup();
@@ -197,11 +242,15 @@ export const useAudioRecorder = (options = {}) => {
 
   const stopRecording = useCallback(async () => {
     if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+      logger.warn(LOG_CATEGORIES.RECORDER, 'stopRecording called but MediaRecorder is not active');
       return null;
     }
     
     try {
       setIsRecording(false);
+      logger.info(LOG_CATEGORIES.RECORDER, 'Stopping MediaRecorder', {
+        chunksRecorded: audioChunksRef.current.length,
+      });
       
       // Stop the media recorder
       mediaRecorderRef.current.stop();
@@ -225,6 +274,13 @@ export const useAudioRecorder = (options = {}) => {
         lastModified: Date.now(),
       });
       
+      logger.info(LOG_CATEGORIES.RECORDER, 'Audio recording blob finalized', {
+        sizeBytes: blob.size,
+        sizeFormatted: `${(blob.size / 1024).toFixed(1)} KB`,
+        mimeType: blob.type,
+        fileName: file.name,
+      });
+
       setAudioBlob(file);
       setAudioUrl(url);
       
@@ -236,7 +292,7 @@ export const useAudioRecorder = (options = {}) => {
       return { file, url };
       
     } catch (error) {
-      console.error('Error stopping recording:', error);
+      logger.error(LOG_CATEGORIES.RECORDER, 'Error processing audio chunks into Blob', error);
       setError('Failed to process recording');
       throw error;
     } finally {
