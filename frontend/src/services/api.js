@@ -185,6 +185,10 @@ export const apiService = {
     }
   },
 
+  async healthCheck() {
+    return this.getHealth();
+  },
+
   async getVersion() {
     try {
       const response = await api.get('/version');
