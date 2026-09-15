@@ -21,7 +21,7 @@ export async function initServices() {
 export async function apiRoutes(fastify, options) {
   /**
    * POST /api/identify
-   * Fastify multipart & transcript handler
+   * Fastify multipart & transcript handler with resilient stream handling
    */
   fastify.post("/identify", async (req, reply) => {
     const startTime = Date.now();
@@ -30,33 +30,37 @@ export async function apiRoutes(fastify, options) {
     let fileSize = 0;
     let contentType = "text/plain";
 
-    if (req.isMultipart()) {
-      const parts = req.parts();
-      for await (const part of parts) {
-        if (part.type === "file" && part.fieldname === "file") {
-          fileName = part.filename;
-          contentType = part.mimetype;
-          const buffer = await part.toBuffer();
-          fileSize = buffer.length;
-        } else if (part.type === "field" && part.fieldname === "transcript") {
-          transcript = part.value;
-        }
-      }
-    } else {
-      transcript = req.body?.transcript || "";
-    }
-
-    if (!fileSize && (!transcript || !transcript.trim())) {
-      reply.code(400);
-      return {
-        detail: "Either an audio file or an Arabic recitation transcript must be provided"
-      };
-    }
-
-    let textMatches = [];
-    let audioMatches = [];
-
     try {
+      if (req.isMultipart()) {
+        try {
+          const parts = req.parts();
+          for await (const part of parts) {
+            if (part.type === "file" && part.fieldname === "file") {
+              fileName = part.filename || "audio.wav";
+              contentType = part.mimetype || "audio/wav";
+              const buffer = await part.toBuffer();
+              fileSize = buffer.length;
+            } else if (part.type === "field" && part.fieldname === "transcript") {
+              transcript = part.value || "";
+            }
+          }
+        } catch (mpErr) {
+          console.warn("[Identify] Multipart parse error:", mpErr.message);
+        }
+      } else if (req.body) {
+        transcript = req.body.transcript || "";
+      }
+
+      if (!fileSize && (!transcript || !transcript.trim())) {
+        reply.code(400);
+        return {
+          detail: "Either an audio file or an Arabic recitation transcript must be provided"
+        };
+      }
+
+      let textMatches = [];
+      let audioMatches = [];
+
       if (transcript && transcript.trim()) {
         textMatches = arabicMatcher.matchText(transcript.trim(), 5, 0.35);
       }
@@ -117,6 +121,7 @@ export async function apiRoutes(fastify, options) {
       };
     } catch (error) {
       const processingTime = Math.round((Date.now() - startTime) / 10) / 100;
+      console.error("Error in /api/identify:", error);
       return {
         success: false,
         matches: [],
