@@ -1,17 +1,27 @@
 import React, { useState } from 'react';
 import AudioUpload from '../components/AudioUpload';
 import VerseResults from '../components/VerseResults';
+import IdentifyingProgress from '../components/IdentifyingProgress';
+import { apiService } from '../services/api';
 
 const Home = () => {
   const [results, setResults] = useState(null);
   const [originalFile, setOriginalFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadInfo, setUploadInfo] = useState({});
   const [error, setError] = useState(null);
 
-  const handleUploadStart = () => {
+  const handleUploadStart = (info = {}) => {
     setLoading(true);
+    setUploadInfo(info);
+    setUploadProgress(0);
     setError(null);
     setResults(null);
+  };
+
+  const handleUploadProgress = (percent) => {
+    setUploadProgress(percent);
   };
 
   const handleUploadSuccess = (uploadResults, file) => {
@@ -23,9 +33,15 @@ const Home = () => {
 
   const handleUploadError = (uploadError, file) => {
     setLoading(false);
-    setError(uploadError.message || 'An error occurred during upload');
+    setError(uploadError?.message || 'An error occurred while identifying the verse.');
     setResults(null);
     setOriginalFile(file);
+  };
+
+  const handleCancel = () => {
+    apiService.cancelAllRequests();
+    setLoading(false);
+    setError(null);
   };
 
   const handleNewSearch = () => {
@@ -36,191 +52,69 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
+    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        
+        {/* Main Content Sections */}
+        {loading && (
+          <IdentifyingProgress
+            uploadInfo={uploadInfo}
+            progress={uploadProgress}
+            onCancel={handleCancel}
+          />
+        )}
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {!results && !loading && !error && (
-          <div className="space-y-12">
-            {/* Upload Section */}
-            <section>
-              <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                  Upload Your Audio Recording
-                </h2>
-                <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                  Drop your audio file below or click to select. Our AI will analyze
-                  the recording and identify the Quran verse being recited.
-                </p>
-              </div>
+        {!loading && !results && !error && (
+          <div className="space-y-6">
+            {/* Header Title */}
+            <div className="text-center max-w-xl mx-auto mb-6">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Identify Any Quran Verse
+              </h2>
+              <p className="text-sm sm:text-base text-slate-500 mt-2">
+                Recite via microphone, upload an audio clip, or type Arabic words to identify the Surah and Ayah.
+              </p>
+            </div>
 
-              <AudioUpload
-                onUploadStart={handleUploadStart}
-                onUploadSuccess={handleUploadSuccess}
-                onUploadError={handleUploadError}
-              />
-            </section>
-
-            {/* How it Works */}
-            <section className="py-16 bg-white rounded-2xl shadow-sm">
-              <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                  How It Works
-                </h2>
-                <p className="text-lg text-gray-600">
-                  Our advanced audio recognition system uses machine learning to identify verses
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="text-center p-6">
-                  <div className="w-16 h-16 bg-islamic-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">🎤</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    1. Upload Audio
-                  </h3>
-                  <p className="text-gray-600">
-                    Upload your Quran recitation audio file in MP3, WAV, or other supported formats
-                  </p>
-                </div>
-
-                <div className="text-center p-6">
-                  <div className="w-16 h-16 bg-islamic-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">🧠</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    2. AI Analysis
-                  </h3>
-                  <p className="text-gray-600">
-                    Our AI extracts audio fingerprints and compares them against our verse database
-                  </p>
-                </div>
-
-                <div className="text-center p-6">
-                  <div className="w-16 h-16 bg-islamic-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">✨</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    3. Get Results
-                  </h3>
-                  <p className="text-gray-600">
-                    Receive the identified verse with Arabic text, translation, and confidence score
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* Features */}
-            <section>
-              <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                  Powerful Features
-                </h2>
-                <p className="text-lg text-gray-600">
-                  Everything you need for accurate Quran verse identification
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div className="card p-6">
-                  <div className="text-2xl mb-3">🎯</div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    High Accuracy
-                  </h3>
-                  <p className="text-gray-600">
-                    Advanced audio fingerprinting ensures accurate verse identification
-                  </p>
-                </div>
-
-                <div className="card p-6">
-                  <div className="text-2xl mb-3">⚡</div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Fast Processing
-                  </h3>
-                  <p className="text-gray-600">
-                    Get results in seconds with our optimized recognition algorithms
-                  </p>
-                </div>
-
-                <div className="card p-6">
-                  <div className="text-2xl mb-3">🌍</div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Multiple Reciters
-                  </h3>
-                  <p className="text-gray-600">
-                    Trained on various recitation styles for better recognition
-                  </p>
-                </div>
-
-                <div className="card p-6">
-                  <div className="text-2xl mb-3">📱</div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Easy Upload
-                  </h3>
-                  <p className="text-gray-600">
-                    Drag-and-drop interface supports multiple audio formats
-                  </p>
-                </div>
-
-                <div className="card p-6">
-                  <div className="text-2xl mb-3">🔒</div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Privacy First
-                  </h3>
-                  <p className="text-gray-600">
-                    Your audio files are processed securely and not stored permanently
-                  </p>
-                </div>
-
-                <div className="card p-6">
-                  <div className="text-2xl mb-3">📊</div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Detailed Results
-                  </h3>
-                  <p className="text-gray-600">
-                    Get confidence scores and detailed match information
-                  </p>
-                </div>
-              </div>
-            </section>
+            {/* Audio Upload Component */}
+            <AudioUpload
+              onUploadStart={handleUploadStart}
+              onUploadProgress={handleUploadProgress}
+              onUploadSuccess={handleUploadSuccess}
+              onUploadError={handleUploadError}
+            />
           </div>
         )}
 
         {/* Error Display */}
-        {error && (
-          <div className="max-w-2xl mx-auto">
-            <div className="card p-8 border-red-200 bg-red-50">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
-                  <span className="text-red-600 text-xl">⚠️</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-red-800">
-                    Upload Error
-                  </h3>
-                  <p className="text-red-600">{error}</p>
-                </div>
-              </div>
-              <button
-                onClick={handleNewSearch}
-                className="btn btn-primary"
-              >
-                Try Again
-              </button>
+        {error && !loading && (
+          <div className="max-w-xl mx-auto my-8 bg-white p-6 sm:p-8 rounded-2xl border border-red-200 shadow-sm text-center space-y-4">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-xl">
+              ⚠️
             </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Identification Failed</h3>
+              <p className="text-sm text-red-600 mt-1">{error}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleNewSearch}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl transition-all shadow-xs"
+            >
+              Try Again
+            </button>
           </div>
         )}
 
         {/* Results Display */}
-        {results && (
+        {results && !loading && (
           <VerseResults
             results={results}
             originalFile={originalFile}
             onNewSearch={handleNewSearch}
           />
         )}
+
       </div>
     </div>
   );

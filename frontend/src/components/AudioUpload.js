@@ -5,7 +5,7 @@ import FileUpload from './audio/FileUpload';
 import { apiService } from '../services/api';
 import { FiMic, FiSearch } from 'react-icons/fi';
 
-const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
+const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploadError }) => {
   // Mode selection: 'audio' | 'text'
   const [activeTab, setActiveTab] = useState('audio');
 
@@ -119,12 +119,18 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
     try {
       setUploading(true);
       setProgress(0);
-      onUploadStart?.();
+      onUploadStart?.({
+        type: 'audio',
+        fileName: selectedFile?.name || 'Microphone Recitation',
+        fileSize: selectedFile?.size,
+        transcript: liveTranscript.trim(),
+      });
 
       const response = await apiService.identifyVerse(
         selectedFile,
         (percentCompleted) => {
           setProgress(percentCompleted);
+          onUploadProgress?.(percentCompleted);
         },
         liveTranscript
       );
@@ -132,11 +138,15 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
       setUploading(false);
       onUploadSuccess?.(response, selectedFile);
     } catch (error) {
+      if (error?.message === 'Request was canceled' || error?.message?.includes('canceled')) {
+        setUploading(false);
+        return;
+      }
       console.error('Upload error:', error);
       setUploading(false);
       onUploadError?.(error);
     }
-  }, [selectedFile, liveTranscript, onUploadStart, onUploadSuccess, onUploadError]);
+  }, [selectedFile, liveTranscript, onUploadStart, onUploadProgress, onUploadSuccess, onUploadError]);
 
   // Handle instant text identification
   const handleTextIdentify = useCallback(async (e) => {
@@ -146,7 +156,10 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
     try {
       setUploading(true);
       setProgress(50);
-      onUploadStart?.();
+      onUploadStart?.({
+        type: 'text',
+        text: textQuery.trim(),
+      });
 
       const response = await apiService.identifyVerseByText(textQuery.trim(), 5);
 
@@ -154,6 +167,10 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
       setProgress(100);
       onUploadSuccess?.(response, null);
     } catch (error) {
+      if (error?.message === 'Request was canceled' || error?.message?.includes('canceled')) {
+        setUploading(false);
+        return;
+      }
       console.error('Text search error:', error);
       setUploading(false);
       onUploadError?.(error);
