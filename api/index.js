@@ -1,31 +1,30 @@
-import express from "express";
-import cors from "cors";
-import apiRouter, { initServices } from "../backend-node/src/routes/api.js";
+import Fastify from "fastify";
+import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
+import { apiRoutes, initServices } from "../backend-node/src/routes/api.js";
 
-const app = express();
+const fastify = Fastify({ logger: false });
 
-app.use(cors({ origin: "*" }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+await fastify.register(cors, { origin: "*" });
+await fastify.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
+await fastify.register(apiRoutes, { prefix: "/api" });
 
-let initialized = false;
-app.use(async (req, res, next) => {
-  if (!initialized) {
-    await initServices();
-    initialized = true;
-  }
-  next();
-});
-
-// Mount /api routes
-app.use("/api", apiRouter);
-
-// Root health check
-app.get("/", (req, res) => {
-  res.json({
-    message: "Quran Verse Identifier Serverless API",
+fastify.get("/", async () => {
+  return {
+    message: "Quran Verse Identifier Fastify Serverless API",
     status: "running"
-  });
+  };
 });
 
-export default app;
+let readyPromise = null;
+
+export default async function handler(req, res) {
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      await initServices();
+      await fastify.ready();
+    })();
+  }
+  await readyPromise;
+  fastify.server.emit("request", req, res);
+}

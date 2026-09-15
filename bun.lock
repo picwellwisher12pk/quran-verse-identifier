@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "quran-verse-identifier-backend-node",
+      "name": "quran-verse-identifier-monorepo",
       "dependencies": {
         "@fastify/aws-lambda": "^6.4.1",
         "@fastify/cors": "^11.3.0",
@@ -14,7 +14,7 @@
         "express": "^4.19.2",
         "fastify": "^5.12.4",
         "multer": "^1.4.5-lts.1",
-        "sql.js": "^1.14.2",
+        "sql.js": "^1.12.0",
       },
     },
   },
