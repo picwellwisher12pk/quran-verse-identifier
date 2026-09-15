@@ -1,0 +1,11 @@
+backend/
+audio_files/
+logs/
+*.mp3
+*.wav
+*.py
+requirements.txt
+Dockerfile
+run.py
+start_public_tunnel.bat
+run_node.bat
