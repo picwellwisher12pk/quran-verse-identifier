@@ -4,7 +4,7 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import AudioPlayer from './audio/AudioPlayer';
 import Visualizer from './audio/Visualizer';
 import { apiService } from '../services/api';
-import { FiMic, FiSearch, FiSquare, FiUploadCloud, FiRotateCcw } from 'react-icons/fi';
+import { FiMic, FiSearch, FiSquare, FiUploadCloud } from 'react-icons/fi';
 
 const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploadError }) => {
   const [uploading, setUploading] = useState(false);
@@ -58,13 +58,6 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     return `${mins}:${remaining.toString().padStart(2, '0')}`;
   };
 
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '';
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(1)} KB`;
-    }
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   // Helper to start Speech Recognition on both Desktop and Mobile
   const initAndStartSTT = useCallback(() => {
@@ -157,14 +150,6 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     setCurrentAudioUrl(URL.createObjectURL(file));
     setLiveTranscript('');
   }, [onUploadError]);
-
-  // Discard current audio & reset
-  const handleReset = useCallback(() => {
-    setSelectedFile(null);
-    setCurrentAudioUrl('');
-    setLiveTranscript('');
-    setIsUnwrapping(false);
-  }, []);
 
   const handleBrowseClick = () => {
     if (isRecording || uploading) return;
@@ -342,54 +327,21 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
         </div>
       ) : hasAudioReady ? (
         /* ============================================================ */
-        /* STATE 2: AUDIO READY (PREVIEW & IDENTIFY)                    */
+        /* STATE 2: AUDIO READY (MINIMAL RECORDED WAVE & CONTROLS)      */
         /* ============================================================ */
-        <div className="space-y-5 max-w-lg mx-auto">
-          {/* Audio Source Badge */}
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-700 bg-slate-100 py-1 px-3 rounded-full">
-              <span>{selectedFile?.name?.startsWith('recording_') ? '🎙️ Recording' : '🎵 Audio'}</span>
-              {selectedFile?.size && (
-                <span className="text-slate-400">• {formatFileSize(selectedFile.size)}</span>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={uploading}
-              className="inline-flex items-center space-x-1 text-xs text-slate-500 hover:text-red-600 transition-colors py-1 px-2 rounded-md hover:bg-red-50 cursor-pointer"
-              title="Discard this recording"
-            >
-              <FiRotateCcw className="w-3.5 h-3.5" />
-              <span>Discard</span>
-            </button>
-          </div>
-
-          {/* Captured Arabic Script Banner */}
-          {liveTranscript && (
-            <div className="bg-teal-50/80 border border-teal-200/80 rounded-2xl p-3.5 text-center">
-              <span className="text-[10px] font-semibold text-teal-700 uppercase tracking-wider block mb-1">
-                Recited Text
-              </span>
-              <p dir="rtl" className="font-quran text-xl sm:text-2xl text-slate-900 leading-relaxed px-1">
-                {liveTranscript}
-              </p>
-            </div>
-          )}
-
-          {/* Audio Player with WaveSurfer */}
+        <div className="space-y-4 max-w-md mx-auto text-center py-2">
+          {/* Audio Player: Recorded Wave Graphics + Play/Pause & Volume */}
           <AudioPlayer audioUrl={currentAudioUrl} />
 
           {/* Primary Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button
               type="button"
               onClick={handleAudioUpload}
               disabled={uploading}
-              className="w-full sm:flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3.5 px-6 rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 active:scale-98 text-sm sm:text-base cursor-pointer"
+              className="w-full sm:w-auto min-w-[200px] bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-semibold py-3 px-6 rounded-full transition-all shadow-sm flex items-center justify-center space-x-2 text-sm cursor-pointer"
             >
-              <FiSearch className="w-4 h-4 sm:w-5 sm:h-5" />
+              <FiSearch className="w-4 h-4" />
               <span>Identify Verse</span>
             </button>
 
@@ -397,7 +349,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
               type="button"
               onClick={handleStartRecording}
               disabled={uploading}
-              className="w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-100 py-3 px-4 rounded-xl transition-all text-xs sm:text-sm font-medium border border-slate-200 cursor-pointer"
+              className="text-slate-500 hover:text-slate-800 text-xs sm:text-sm font-medium py-2 px-3 transition-colors cursor-pointer"
             >
               Recite Again
             </button>

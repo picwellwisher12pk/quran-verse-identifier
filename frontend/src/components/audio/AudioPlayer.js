@@ -15,18 +15,16 @@ const AudioPlayer = ({
   onVolumeChange: externalOnVolumeChange,
 }) => {
   const waveformRef = useRef(null);
-  const [volume, setVolume] = useState(0.8);
+  const [volume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
 
   const {
-    currentTime,
-    duration,
     waveformReady,
     isPlaying,
     wavesurfer,
   } = useWaveSurfer(waveformRef, audioUrl, {
     interact: !isRecording,
-    height: 100,
+    height: 80,
   });
 
   // Apply volume and muted state to WaveSurfer instance when ready
@@ -51,19 +49,6 @@ const AudioPlayer = ({
     }
   }, [wavesurfer, externalOnPlayPause]);
 
-  const handleSkip = useCallback((seconds) => {
-    if (!wavesurfer) return;
-    try {
-      const cur = wavesurfer.getCurrentTime() || 0;
-      const dur = wavesurfer.getDuration() || 0;
-      const nextTime = Math.max(0, Math.min(dur || 9999, cur + seconds));
-      wavesurfer.setTime(nextTime);
-      externalOnSkip?.(seconds);
-    } catch (err) {
-      console.error('Error skipping audio:', err);
-    }
-  }, [wavesurfer, externalOnSkip]);
-
   const handleMute = useCallback(() => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
@@ -77,34 +62,16 @@ const AudioPlayer = ({
     externalOnMute?.(nextMuted);
   }, [wavesurfer, isMuted, externalOnMute]);
 
-  const handleVolumeChange = useCallback((newVolume) => {
-    setVolume(newVolume);
-    if (newVolume > 0 && isMuted) {
-      setIsMuted(false);
-    }
-    if (wavesurfer) {
-      try {
-        wavesurfer.setVolume(newVolume);
-        if (newVolume > 0 && isMuted) {
-          wavesurfer.setMuted(false);
-        }
-      } catch (e) {
-        console.warn('Error setting volume:', e);
-      }
-    }
-    externalOnVolumeChange?.(newVolume);
-  }, [wavesurfer, isMuted, externalOnVolumeChange]);
-
   return (
-    <div className={`space-y-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm ${className}`}>
+    <div className={`w-full max-w-md mx-auto py-2 ${className}`}>
       {isRecording ? (
         <Visualizer 
           analyser={analyser} 
           isRecording={isRecording} 
-          height={100}
+          height={80}
         />
       ) : (
-        <div ref={waveformRef} className="w-full cursor-pointer" />
+        <div ref={waveformRef} className="w-full cursor-pointer py-1" />
       )}
       
       {!isRecording && (
@@ -113,13 +80,8 @@ const AudioPlayer = ({
           isRecording={isRecording}
           isReady={waveformReady}
           onPlayPause={handlePlayPause}
-          onSkip={handleSkip}
           onMute={handleMute}
           isMuted={isMuted}
-          onVolumeChange={handleVolumeChange}
-          volume={volume}
-          currentTime={currentTime}
-          duration={duration}
         />
       )}
     </div>
