@@ -3,7 +3,7 @@
   "framework": null,
   "installCommand": "bun install",
   "buildCommand": "cd frontend && bun install && bun run build",
-  "outputDirectory": "frontend/build",
+  "outputDirectory": "frontend/dist/client",
   "functions": {
     "api/index.js": {
       "includeFiles": "data/quran.db"
