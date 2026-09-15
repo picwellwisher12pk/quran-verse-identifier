@@ -2,9 +2,8 @@ import React, { useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 /**
- * Morphing Audio Waveform Canvas
- * Renders an animated or live mic oscilloscope line that seamlessly
- * unrolls from a circle into a full-width soundwave, reacting to audio input.
+ * High-performance oscilloscope audio waveform canvas.
+ * Exactly matches the 3px teal border of the record button for a 1:1 seamless unwrap transition.
  */
 const Visualizer = ({ analyser, isRecording, width = '100%', height = 90 }) => {
   const canvasRef = useRef(null);
@@ -23,13 +22,13 @@ const Visualizer = ({ analyser, isRecording, width = '100%', height = 90 }) => {
     const render = () => {
       animationFrameRef.current = requestAnimationFrame(render);
 
-      // Adapt to responsive display width
-      const w = (canvas.width = canvas.offsetWidth * window.devicePixelRatio || 600);
-      const h = (canvas.height = canvas.offsetHeight * window.devicePixelRatio || 90);
+      const dpr = window.devicePixelRatio || 1;
+      const w = (canvas.width = (canvas.offsetWidth || 600) * dpr);
+      const h = (canvas.height = (canvas.offsetHeight || 90) * dpr);
       ctx.clearRect(0, 0, w, h);
 
       const midY = h / 2;
-      phaseRef.current += 0.05;
+      phaseRef.current += 0.06;
 
       let hasMicData = false;
       if (analyser && isRecording) {
@@ -37,23 +36,18 @@ const Visualizer = ({ analyser, isRecording, width = '100%', height = 90 }) => {
         hasMicData = true;
       }
 
-      // Draw subtle horizon baseline
+      // 1. Baseline Horizon (subtle guide)
       ctx.beginPath();
       ctx.moveTo(0, midY);
       ctx.lineTo(w, midY);
-      ctx.strokeStyle = 'rgba(203, 213, 225, 0.4)'; // slate-300
-      ctx.lineWidth = 1 * window.devicePixelRatio;
+      ctx.strokeStyle = 'rgba(13, 148, 136, 0.25)'; // subtle teal guide
+      ctx.lineWidth = 1 * dpr;
       ctx.stroke();
 
-      // Dynamic primary wave
-      const grad = ctx.createLinearGradient(0, 0, w, 0);
-      grad.addColorStop(0, '#0d9488');   // teal-600
-      grad.addColorStop(0.5, '#06b6d4'); // cyan-500
-      grad.addColorStop(1, '#0d9488');
-
+      // 2. Primary Oscilloscope Wave: exact 3px thickness matching the record button border
       ctx.beginPath();
-      ctx.lineWidth = 3 * window.devicePixelRatio;
-      ctx.strokeStyle = grad;
+      ctx.lineWidth = 3 * dpr;
+      ctx.strokeStyle = '#0d9488'; // teal-600
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
@@ -63,17 +57,15 @@ const Visualizer = ({ analyser, isRecording, width = '100%', height = 90 }) => {
       for (let i = 0; i < points; i++) {
         const x = i * sliceW;
         let y = midY;
+        const windowFactor = Math.sin((Math.PI * i) / (points - 1)); // Hann envelope: pins ends to horizon
 
         if (hasMicData && dataArrayRef.current) {
           const dataIndex = Math.floor((i / points) * dataArrayRef.current.length);
-          const v = (dataArrayRef.current[dataIndex] - 128) / 128.0; // -1.0 to 1.0
-          // Apply a Hann window attenuation at boundaries so the line ends smoothly on the baseline
-          const windowFactor = Math.sin((Math.PI * i) / (points - 1));
-          y = midY + v * (midY * 0.9) * windowFactor;
+          const v = (dataArrayRef.current[dataIndex] - 128) / 128.0;
+          y = midY + v * (midY * 0.85) * windowFactor;
         } else if (isRecording) {
-          // Synthetic ambient idle pulse while waiting for mic buffer
-          const windowFactor = Math.sin((Math.PI * i) / (points - 1));
-          const wave = Math.sin(i * 0.15 + phaseRef.current) * 8 * windowFactor;
+          // Ambient breathing line while soundbuffer initializes
+          const wave = Math.sin(i * 0.16 + phaseRef.current) * 7 * windowFactor;
           y = midY + wave;
         }
 
@@ -83,11 +75,6 @@ const Visualizer = ({ analyser, isRecording, width = '100%', height = 90 }) => {
           ctx.lineTo(x, y);
         }
       }
-      ctx.stroke();
-
-      // Secondary soft glow layer
-      ctx.lineWidth = 6 * window.devicePixelRatio;
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)'; // cyan glow
       ctx.stroke();
     };
 

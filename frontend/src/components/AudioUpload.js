@@ -14,11 +14,12 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Transition state: 'unrolling' from circle to line
-  const [isUnrolling, setIsUnrolling] = useState(false);
+  // Smooth single-phase animation transition state
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const fileInputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const recognitionActiveRef = useRef(false);
 
   // Audio recorder hook
   const {
@@ -66,63 +67,112 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Initialize Speech Recognition API
+  // Robust Mobile + Desktop Speech Recognition setup
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ar-SA';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onresult = (event) => {
-          let current = '';
-          for (let i = 0; i < event.results.length; i++) {
-            current += event.results[i][0].transcript;
-          }
-          setLiveTranscript(current);
-        };
-
-        recognition.onerror = (err) => {
-          console.warn('Speech recognition warning:', err.error);
-        };
-
-        recognitionRef.current = recognition;
-      } catch (e) {
-        console.warn('Failed to setup speech recognition:', e);
-      }
+    if (!SpeechRecognition) {
+      console.warn('[STT] Web Speech API not supported in this browser.');
+      return;
     }
-  }, []);
 
-  // Start recording with unwrap animation
-  const handleStartRecording = useCallback(() => {
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ar-SA';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        recognitionActiveRef.current = true;
+      };
+
+      recognition.onresult = (event) => {
+        let transcriptAccumulator = '';
+        for (let i = 0; i < event.results.length; i++) {
+          transcriptAccumulator += event.results[i][0].transcript;
+        }
+        if (transcriptAccumulator.trim()) {
+          setLiveTranscript(transcriptAccumulator);
+        }
+      };
+
+      recognition.onerror = (err) => {
+        // Mobile browsers frequently fire 'no-speech' or 'audio-capture' timeouts
+        if (err.error === 'no-speech') {
+          // Keep active or ignore
+          return;
+        }
+        console.warn('[STT] Speech recognition event error:', err.error);
+      };
+
+      recognition.onend = () => {
+        recognitionActiveRef.current = false;
+        // On mobile Android/Chrome, continuous STT sometimes stops unexpectedly mid-speech
+        // Restart if we are still actively recording
+        if (isRecording) {
+          try {
+            recognition.start();
+            recognitionActiveRef.current = true;
+          } catch (e) {
+            // ignore
+          }
+        }
+      };
+
+      recognitionRef.current = recognition;
+    } catch (e) {
+      console.warn('[STT] Failed to initialize SpeechRecognition:', e);
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {}
+      }
+    };
+  }, [isRecording]);
+
+  // Smooth unwrap click handler (Zero jerk, zero flash)
+  const handleStartRecording = useCallback(async () => {
     setSelectedFile(null);
     setCurrentAudioUrl('');
     setLiveTranscript('');
 
-    // Trigger circular unwrap animation
-    setIsUnrolling(true);
+    // Trigger visual unwrap animation
+    setIsTransitioning(true);
 
-    setTimeout(() => {
-      startRecording();
-      setIsUnrolling(false);
-      if (recognitionRef.current) {
+    try {
+      // Start microphone stream synchronously
+      await startRecording();
+
+      // Start speech recognition in direct user gesture context for mobile permissions
+      if (recognitionRef.current && !recognitionActiveRef.current) {
         try {
           recognitionRef.current.start();
+          recognitionActiveRef.current = true;
         } catch (e) {
-          console.warn('Recognition already active or failed:', e);
+          console.warn('[STT] Start failed:', e);
         }
       }
-    }, 450); // duration of morph animation
+    } catch (err) {
+      console.error('Failed to start recording:', err);
+    } finally {
+      // Wait for the CSS unwrap animation (450ms) to complete before clearing
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 460);
+    }
   }, [startRecording]);
 
   // Stop recording
   const handleStopRecording = useCallback(() => {
     stopRecording();
-    if (recognitionRef.current) {
+    setIsTransitioning(false);
+    if (recognitionRef.current && recognitionActiveRef.current) {
       try {
         recognitionRef.current.stop();
+        recognitionActiveRef.current = false;
       } catch (e) {
         // ignore
       }
@@ -148,6 +198,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     setSelectedFile(null);
     setCurrentAudioUrl('');
     setLiveTranscript('');
+    setIsTransitioning(false);
   }, []);
 
   const handleBrowseClick = () => {
@@ -224,9 +275,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
-        } catch (e) {
-          // ignore
-        }
+        } catch (e) {}
       }
     };
   }, [cleanupRecorder]);
@@ -234,6 +283,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
   // Handle recorder error
   useEffect(() => {
     if (recordingError) {
+      setIsTransitioning(false);
       onUploadError?.(recordingError);
     }
   }, [recordingError, onUploadError]);
@@ -271,9 +321,9 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
       )}
 
       {/* ============================================================ */}
-      {/* STATE 1: RECORDING OR UNROLLING IN PROGRESS                  */}
+      {/* STATE 1: RECORDING OR TRANSITIONING ACTIVE                   */}
       {/* ============================================================ */}
-      {isRecording || isUnrolling ? (
+      {isRecording || isTransitioning ? (
         <div className="w-full space-y-6 text-center py-4 sm:py-6">
           {/* Recording Status & Timer */}
           <div className="flex items-center justify-center space-x-2">
@@ -282,21 +332,22 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
               <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
             </span>
             <span className="text-sm font-semibold text-red-600 tracking-wide uppercase">
-              {isUnrolling ? 'Connecting Microphone...' : 'Recording Recitation'}
+              {isTransitioning && !isRecording ? 'Starting Recitation...' : 'Recording Recitation'}
             </span>
             <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
               {formatTime(recordingSeconds)}
             </span>
           </div>
 
-          {/* Morphing Waveform Visualizer Container */}
+          {/* Morphing Waveform Container with smooth CSS unwrap transition */}
           <div className="relative py-2 w-full max-w-xl mx-auto flex items-center justify-center min-h-[90px]">
-            {isUnrolling ? (
-              // Unwrapping Morph Animation: Circle border expands and flattens into a line
-              <div className="w-full h-20 flex items-center justify-center relative overflow-hidden">
-                <div className="w-28 h-28 border-3 border-teal-500 rounded-full animate-unwrap-to-line" />
+            {isTransitioning && !isRecording ? (
+              // Continuous unwrap: hollow circle border unrolls into straight baseline
+              <div className="w-full h-20 flex items-center justify-center">
+                <div className="w-36 h-36 border-3 border-teal-600 rounded-full animate-unwrap-morph" />
               </div>
             ) : (
+              // Live oscilloscope waveform with exact same 3px teal stroke
               <Visualizer
                 analyser={analyserRef.current}
                 isRecording={isRecording}
@@ -411,23 +462,17 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
         </div>
       ) : (
         /* ============================================================ */
-        /* STATE 3: IDLE STATE (HOLLOW BORDER RECORD BUTTON)            */
+        /* STATE 3: IDLE STATE (HOLLOW 3PX TEAL BUTTON)                 */
         /* ============================================================ */
         <div className="flex flex-col items-center justify-center text-center space-y-6 py-6 sm:py-10">
-          {/* Main Record Button: Hollow with prominent animated border */}
+          {/* Main Record Button: Hollow with clean 3px teal outline */}
           <div className="relative flex items-center justify-center">
-            {/* Outer subtle glow ring on hover */}
-            <span className="absolute -inset-3 rounded-full border border-teal-300/40 animate-pulse pointer-events-none" />
-
             <button
               type="button"
               onClick={handleStartRecording}
               aria-label="Start recording Quran recitation"
-              className="group relative flex flex-col items-center justify-center w-36 h-36 sm:w-44 sm:h-44 rounded-full bg-white border-3 border-teal-600 hover:border-teal-500 text-teal-700 shadow-sm hover:shadow-xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer focus:outline-none"
+              className="group relative flex flex-col items-center justify-center w-36 h-36 sm:w-40 sm:h-40 rounded-full bg-white border-3 border-teal-600 hover:border-teal-500 text-teal-700 shadow-sm hover:shadow-lg transition-all transform hover:scale-105 active:scale-95 cursor-pointer focus:outline-none"
             >
-              {/* Inner subtle pulse background on hover */}
-              <span className="absolute inset-2 rounded-full bg-teal-50 opacity-0 group-hover:opacity-100 transition-opacity" />
-
               <div className="relative z-10 flex flex-col items-center">
                 <FiMic className="w-12 h-12 sm:w-14 sm:h-14 mb-2 text-teal-600 group-hover:scale-110 transition-transform" />
                 <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800">
