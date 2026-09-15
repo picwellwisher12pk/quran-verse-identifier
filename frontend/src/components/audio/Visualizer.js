@@ -24,11 +24,26 @@ const Visualizer = ({ analyser, isRecording, width = '100%', height = 80 }) => {
       
       analyser.getByteTimeDomainData(dataArrayRef.current);
       
-      canvasCtx.fillStyle = 'rgb(255, 255, 255)';
-      canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+      canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
       
-      canvasCtx.lineWidth = 2;
-      canvasCtx.strokeStyle = 'rgb(99, 102, 241)';
+      // Background subtle guide line
+      canvasCtx.lineWidth = 1;
+      canvasCtx.strokeStyle = 'rgba(226, 232, 240, 0.6)';
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(0, HEIGHT / 2);
+      canvasCtx.lineTo(WIDTH, HEIGHT / 2);
+      canvasCtx.stroke();
+      
+      // Animated audio wave
+      const gradient = canvasCtx.createLinearGradient(0, 0, WIDTH, 0);
+      gradient.addColorStop(0, '#3b82f6');
+      gradient.addColorStop(0.5, '#6366f1');
+      gradient.addColorStop(1, '#2563eb');
+      
+      canvasCtx.lineWidth = 3;
+      canvasCtx.strokeStyle = gradient;
+      canvasCtx.lineCap = 'round';
+      canvasCtx.lineJoin = 'round';
       canvasCtx.beginPath();
       
       const sliceWidth = WIDTH * 1.0 / bufferLength;
@@ -36,7 +51,7 @@ const Visualizer = ({ analyser, isRecording, width = '100%', height = 80 }) => {
       
       for (let i = 0; i < bufferLength; i++) {
         const v = dataArrayRef.current[i] / 128.0;
-        const y = v * HEIGHT / 2;
+        const y = (v * HEIGHT) / 2;
         
         if (i === 0) {
           canvasCtx.moveTo(x, y);
@@ -47,7 +62,7 @@ const Visualizer = ({ analyser, isRecording, width = '100%', height = 80 }) => {
         x += sliceWidth;
       }
       
-      canvasCtx.lineTo(canvas.width, canvas.height / 2);
+      canvasCtx.lineTo(WIDTH, HEIGHT / 2);
       canvasCtx.stroke();
     };
     
@@ -61,10 +76,10 @@ const Visualizer = ({ analyser, isRecording, width = '100%', height = 80 }) => {
   }, [analyser, isRecording]);
 
   return (
-    <div className="w-full bg-white p-4 rounded-lg border border-gray-200">
+    <div className="w-full bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 overflow-hidden shadow-inner">
       <canvas
         ref={canvasRef}
-        className="w-full"
+        className="w-full block"
         style={{ height: `${height}px`, width }}
       />
     </div>

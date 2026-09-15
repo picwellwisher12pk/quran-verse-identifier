@@ -1,26 +1,21 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import AudioPlayer from './audio/AudioPlayer';
-import FileUpload from './audio/FileUpload';
+import Visualizer from './audio/Visualizer';
 import { apiService } from '../services/api';
-import { FiMic, FiSearch } from 'react-icons/fi';
+import { FiMic, FiSearch, FiSquare, FiUploadCloud, FiRotateCcw } from 'react-icons/fi';
 
 const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploadError }) => {
-  // Mode selection: 'audio' | 'text'
-  const [activeTab, setActiveTab] = useState('audio');
-
-  // State management
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const [currentAudioUrl, setCurrentAudioUrl] = useState('');
-
-  // Live Speech Recognition state
   const [liveTranscript, setLiveTranscript] = useState('');
-  const recognitionRef = useRef(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Instant text search state
-  const [textQuery, setTextQuery] = useState('');
+  const fileInputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // Audio recorder hook
   const {
@@ -38,8 +33,36 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     onRecordingComplete: ({ file, url }) => {
       setSelectedFile(file);
       setCurrentAudioUrl(url);
-    }
+    },
   });
+
+  // Recording timer
+  useEffect(() => {
+    let timer;
+    if (isRecording) {
+      setRecordingSeconds(0);
+      timer = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setRecordingSeconds(0);
+    }
+    return () => clearInterval(timer);
+  }, [isRecording]);
+
+  const formatTime = (secs) => {
+    const mins = Math.floor(secs / 60);
+    const remaining = secs % 60;
+    return `${mins}:${remaining.toString().padStart(2, '0')}`;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   // Initialize Speech Recognition API
   useEffect(() => {
@@ -70,7 +93,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     }
   }, []);
 
-  // Start recording with mic + speech recognition
+  // Start recording
   const handleStartRecording = useCallback(() => {
     setSelectedFile(null);
     setCurrentAudioUrl('');
@@ -97,20 +120,59 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     }
   }, [stopRecording]);
 
-  // Handle file selection
-  const handleFileSelect = useCallback((file, error) => {
-    if (error) {
-      console.error('Error selecting file:', error);
-      onUploadError?.(error);
+  // Handle file selection / drop
+  const handleFileSelect = useCallback((file) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|webm|m4a|ogg|aac|flac)$/i)) {
+      onUploadError?.(new Error('Please select a valid audio file (MP3, WAV, WebM, M4A).'));
       return;
     }
 
-    if (file) {
-      setSelectedFile(file);
-      setCurrentAudioUrl(URL.createObjectURL(file));
-      setLiveTranscript('');
-    }
+    setSelectedFile(file);
+    setCurrentAudioUrl(URL.createObjectURL(file));
+    setLiveTranscript('');
   }, [onUploadError]);
+
+  // Discard current audio & reset
+  const handleReset = useCallback(() => {
+    setSelectedFile(null);
+    setCurrentAudioUrl('');
+    setLiveTranscript('');
+  }, []);
+
+  const handleBrowseClick = () => {
+    if (isRecording || uploading) return;
+    fileInputRef.current?.click();
+  };
+
+  // Drag & drop handlers
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isRecording || uploading) return;
+    if (!isDragging) setIsDragging(true);
+  }, [isRecording, uploading, isDragging]);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (isRecording || uploading) return;
+
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  }, [isRecording, uploading, handleFileSelect]);
 
   // Handle audio identification upload
   const handleAudioUpload = useCallback(async () => {
@@ -118,7 +180,6 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
 
     try {
       setUploading(true);
-      setProgress(0);
       onUploadStart?.({
         type: 'audio',
         fileName: selectedFile?.name || 'Microphone Recitation',
@@ -129,7 +190,6 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
       const response = await apiService.identifyVerse(
         selectedFile,
         (percentCompleted) => {
-          setProgress(percentCompleted);
           onUploadProgress?.(percentCompleted);
         },
         liveTranscript
@@ -148,36 +208,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     }
   }, [selectedFile, liveTranscript, onUploadStart, onUploadProgress, onUploadSuccess, onUploadError]);
 
-  // Handle instant text identification
-  const handleTextIdentify = useCallback(async (e) => {
-    e?.preventDefault();
-    if (!textQuery.trim() || textQuery.trim().length < 2) return;
-
-    try {
-      setUploading(true);
-      setProgress(50);
-      onUploadStart?.({
-        type: 'text',
-        text: textQuery.trim(),
-      });
-
-      const response = await apiService.identifyVerseByText(textQuery.trim(), 5);
-
-      setUploading(false);
-      setProgress(100);
-      onUploadSuccess?.(response, null);
-    } catch (error) {
-      if (error?.message === 'Request was canceled' || error?.message?.includes('canceled')) {
-        setUploading(false);
-        return;
-      }
-      console.error('Text search error:', error);
-      setUploading(false);
-      onUploadError?.(error);
-    }
-  }, [textQuery, onUploadStart, onUploadSuccess, onUploadError]);
-
-  // Clean up
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       cleanupRecorder();
@@ -198,227 +229,229 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     }
   }, [recordingError, onUploadError]);
 
+  const hasAudioReady = Boolean(currentAudioUrl && !isRecording);
+
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-6">
-      {/* Mode Switcher Tabs */}
-      <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200 shadow-inner">
-        <button
-          type="button"
-          onClick={() => setActiveTab('audio')}
-          className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
-            activeTab === 'audio'
-              ? 'bg-white text-blue-700 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <FiMic className="w-4 h-4" />
-          <span>Voice & Audio Recitation</span>
-        </button>
+    <div
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`relative w-full max-w-2xl mx-auto rounded-3xl transition-all ${
+        isDragging && !isRecording && !uploading
+          ? 'ring-4 ring-blue-400 ring-offset-4 bg-blue-50/60'
+          : ''
+      }`}
+    >
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*,.mp3,.wav,.webm,.m4a,.ogg,.aac,.flac"
+        onChange={(e) => {
+          if (e.target.files?.[0]) {
+            handleFileSelect(e.target.files[0]);
+            e.target.value = '';
+          }
+        }}
+        className="hidden"
+      />
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('text')}
-          className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
-            activeTab === 'text'
-              ? 'bg-white text-blue-700 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <FiSearch className="w-4 h-4" />
-          <span>Instant Arabic Text Search</span>
-        </button>
-      </div>
+      {/* Dragging Overlay */}
+      {isDragging && !isRecording && !uploading && (
+        <div className="absolute inset-0 z-30 bg-blue-600/90 backdrop-blur-xs rounded-3xl flex flex-col items-center justify-center text-white p-6 text-center animate-fade-in pointer-events-none">
+          <FiUploadCloud className="w-16 h-16 mb-3 animate-bounce" />
+          <h3 className="text-xl font-bold">Drop Your Audio Recording Here</h3>
+          <p className="text-sm text-blue-100 mt-1">Supports MP3, WAV, WebM, M4A, FLAC, OGG</p>
+        </div>
+      )}
 
-      {activeTab === 'audio' ? (
-        <>
-          {/* Upload or Record Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* File Upload */}
-            <FileUpload
-              onFileSelect={handleFileSelect}
-              disabled={isRecording || uploading}
-              accept="audio/*"
-              maxSize={50 * 1024 * 1024}
-            />
-
-            {/* Record Button with Speech Recognition */}
-            <div className="flex flex-col justify-between space-y-3">
-              <button
-                type="button"
-                onClick={isRecording ? handleStopRecording : handleStartRecording}
-                disabled={uploading}
-                className={`flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all ${
-                  isRecording
-                    ? 'bg-red-50 border-red-400 text-red-700 shadow-sm animate-pulse'
-                    : 'border-slate-300 hover:border-blue-500 hover:bg-slate-50 text-slate-700'
-                } ${uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-              >
-                <div
-                  className={`flex items-center justify-center h-12 w-12 rounded-full border-2 mb-3 ${
-                    isRecording ? 'bg-red-100 border-red-500' : 'bg-white border-slate-300'
-                  }`}
-                >
-                  {isRecording ? (
-                    <div className="h-5 w-5 bg-red-600 rounded-xs" />
-                  ) : (
-                    <FiMic className="h-6 w-6 text-blue-600" />
-                  )}
-                </div>
-                <span className="text-sm font-semibold">
-                  {isRecording ? 'Stop Recording' : 'Recite via Microphone'}
-                </span>
-                <span className="text-xs text-slate-500 mt-1">
-                  {isRecording ? 'Click when recitation ends' : 'Click to start reciting'}
-                </span>
-              </button>
-
-              {/* Microphone Device Selector */}
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-xs text-slate-600 mb-1.5 px-0.5">
-                  <span className="font-medium flex items-center space-x-1.5">
-                    <FiMic className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Input Microphone</span>
-                  </span>
-                  {audioDevices.length > 0 && (
-                    <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/70 px-1.5 py-0.5 rounded-md">
-                      {audioDevices.length} available
-                    </span>
-                  )}
-                </div>
-
-                <select
-                  value={selectedDeviceId}
-                  onChange={(e) => setSelectedDeviceId(e.target.value)}
-                  onClick={ensureMicrophonePermissions}
-                  disabled={isRecording || uploading}
-                  className="w-full text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg py-2 px-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 truncate shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="">Default System Microphone</option>
-                  {audioDevices.map((mic, idx) => (
-                    <option key={mic.deviceId || idx} value={mic.deviceId}>
-                      {mic.label || `Microphone ${idx + 1}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+      {/* ============================================================ */}
+      {/* STATE 1: RECORDING IN PROGRESS                                */}
+      {/* ============================================================ */}
+      {isRecording ? (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-lg p-6 sm:p-8 space-y-6 text-center">
+          {/* Recording Timer Header */}
+          <div className="flex items-center justify-center space-x-2">
+            <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
+            </span>
+            <span className="text-sm font-semibold text-red-600 tracking-wide uppercase">
+              Recording Recitation
+            </span>
+            <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+              {formatTime(recordingSeconds)}
+            </span>
           </div>
 
-          {/* Live Detected Arabic Speech Display */}
-          {(isRecording || liveTranscript) && (
-            <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-xl transition-all">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center space-x-2 text-xs font-semibold text-blue-800">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-                  <span>Live Arabic Speech Transcript</span>
-                </div>
-                <span className="text-xs text-blue-600 font-medium">
-                  {isRecording ? 'Listening live...' : 'Captured'}
-                </span>
-              </div>
-              <p
-                dir="rtl"
-                className="font-quran text-2xl text-slate-900 text-right leading-relaxed bg-white/80 p-3 rounded-lg border border-blue-100"
-              >
-                {liveTranscript || (
-                  <span className="text-slate-400 font-sans text-sm">
-                    Recite clearly in Arabic... Words will appear here in real-time.
-                  </span>
-                )}
+          {/* Morphing Waveform Visualizer Line */}
+          <div className="py-2">
+            <Visualizer
+              analyser={analyserRef.current}
+              isRecording={isRecording}
+              height={90}
+            />
+          </div>
+
+          {/* Live Arabic Transcript */}
+          {liveTranscript && (
+            <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 text-center">
+              <span className="text-[11px] font-semibold text-blue-700 uppercase tracking-wider block mb-1">
+                Live Speech Recognition
+              </span>
+              <p dir="rtl" className="font-quran text-2xl text-slate-900 leading-relaxed px-2">
+                {liveTranscript}
               </p>
             </div>
           )}
 
-          {/* Recorded/Uploaded Audio Player Preview */}
-          {(currentAudioUrl || isRecording) && (
-            <div className="mt-4">
-              <AudioPlayer
-                audioUrl={currentAudioUrl}
-                isRecording={isRecording}
-                analyser={analyserRef.current}
-              />
-            </div>
-          )}
-
-          {/* Identify Button */}
-          {(selectedFile || liveTranscript) && !uploading && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={handleAudioUpload}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-sm flex items-center justify-center space-x-2 active:scale-98"
-              >
-                <FiSearch className="w-5 h-5" />
-                <span>Identify Recited Verse</span>
-              </button>
-            </div>
-          )}
-        </>
-      ) : (
-        /* Instant Arabic Text Search Tab */
-        <form onSubmit={handleTextIdentify} className="space-y-4">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Type or Paste Quran Recitation (Arabic)
-              </label>
-              <textarea
-                dir="rtl"
-                rows={3}
-                value={textQuery}
-                onChange={(e) => setTextQuery(e.target.value)}
-                placeholder="مثال: إياك نعبد وإياك نستعين أو قل هو الله أحد"
-                className="w-full font-quran text-2xl p-4 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 shadow-inner"
-              />
-              <p className="text-xs text-slate-500 mt-1.5">
-                Our phonetically-normalized fuzzy search identifies matches in less than 5 milliseconds across all 6,236 verses.
-              </p>
-            </div>
-
-            {/* Quick Suggestions Chips */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs font-semibold text-slate-500">Try reciting:</span>
-              {[
-                'إياك نعبد وإياك نستعين',
-                'قل هو الله أحد',
-                'الله لا إله إلا هو الحي القيوم',
-                'الحمد لله رب العالمين',
-              ].map((sample) => (
-                <button
-                  key={sample}
-                  type="button"
-                  onClick={() => setTextQuery(sample)}
-                  className="px-2.5 py-1 text-xs font-arabic bg-slate-100 hover:bg-blue-50 hover:text-blue-700 rounded-lg border border-slate-200 transition-colors"
-                >
-                  {sample}
-                </button>
-              ))}
+          {/* Prominent Stop Button */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleStopRecording}
+              className="inline-flex items-center space-x-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold py-3.5 px-8 rounded-full shadow-md hover:shadow-lg transition-all transform active:scale-95"
+            >
+              <FiSquare className="w-4 h-4 fill-current" />
+              <span>Stop Recording</span>
+            </button>
+            <p className="text-xs text-slate-400 mt-2">
+              Click when you have finished reciting the verse
+            </p>
+          </div>
+        </div>
+      ) : hasAudioReady ? (
+        /* ============================================================ */
+        /* STATE 2: AUDIO READY (PREVIEW & IDENTIFY)                    */
+        /* ============================================================ */
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-lg p-6 sm:p-8 space-y-6">
+          {/* Audio Source Badge */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-xs font-semibold text-slate-700 bg-slate-100 py-1.5 px-3 rounded-full">
+              <span>{selectedFile?.name?.startsWith('recording_') ? '🎙️ Microphone Recitation' : '🎵 Audio File'}</span>
+              {selectedFile?.size && (
+                <span className="text-slate-400">• {formatFileSize(selectedFile.size)}</span>
+              )}
             </div>
 
             <button
-              type="submit"
-              disabled={!textQuery.trim() || uploading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-sm flex items-center justify-center space-x-2"
+              type="button"
+              onClick={handleReset}
+              disabled={uploading}
+              className="inline-flex items-center space-x-1 text-xs text-slate-500 hover:text-red-600 transition-colors py-1 px-2 rounded-md hover:bg-red-50"
+              title="Discard this recording"
             >
-              <FiSearch className="w-5 h-5" />
-              <span>Search Across 6,236 Verses</span>
+              <FiRotateCcw className="w-3.5 h-3.5" />
+              <span>Discard</span>
             </button>
           </div>
-        </form>
-      )}
 
-      {/* Upload/Processing Progress */}
-      {uploading && (
-        <div className="mt-4 p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex justify-between text-sm text-slate-600 mb-2 font-medium">
-            <span>Analyzing recitation with AI...</span>
-            <span>{Math.round(progress)}%</span>
+          {/* Captured Arabic Script Banner (if live speech was captured) */}
+          {liveTranscript && (
+            <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 text-center">
+              <span className="text-[11px] font-semibold text-blue-700 uppercase tracking-wider block mb-1">
+                Captured Arabic Recitation
+              </span>
+              <p dir="rtl" className="font-quran text-2xl text-slate-900 leading-relaxed px-2">
+                {liveTranscript}
+              </p>
+            </div>
+          )}
+
+          {/* Audio Player with WaveSurfer */}
+          <AudioPlayer audioUrl={currentAudioUrl} />
+
+          {/* Primary Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleAudioUpload}
+              disabled={uploading}
+              className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-6 rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 active:scale-98 text-base cursor-pointer"
+            >
+              <FiSearch className="w-5 h-5" />
+              <span>Identify Recited Verse</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleStartRecording}
+              disabled={uploading}
+              className="w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-100 py-3.5 px-5 rounded-xl transition-all text-sm font-medium border border-slate-200 cursor-pointer"
+            >
+              Recite Again
+            </button>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-            <div
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
+
+          {/* Drag or choose alternative hint */}
+          <div className="text-center pt-2">
+            <p className="text-xs text-slate-400">
+              Want to use a different audio file?{' '}
+              <button
+                type="button"
+                onClick={handleBrowseClick}
+                className="text-blue-600 hover:underline font-medium cursor-pointer"
+              >
+                Drop or browse a new file
+              </button>
+            </p>
+          </div>
+        </div>
+      ) : (
+        /* ============================================================ */
+        /* STATE 3: IDLE STATE (HERO BIG RECORD BUTTON + DROP AREA)     */
+        /* ============================================================ */
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-md p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-6">
+          {/* Big Record Button */}
+          <button
+            type="button"
+            onClick={handleStartRecording}
+            className="group relative flex flex-col items-center justify-center w-36 h-36 sm:w-44 sm:h-44 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 text-white shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-300"
+          >
+            <span className="absolute -inset-1.5 rounded-full bg-blue-400 opacity-25 group-hover:opacity-60 blur-md transition-opacity" />
+            <div className="relative z-10 flex flex-col items-center">
+              <FiMic className="w-14 h-14 sm:w-16 sm:h-16 mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider">
+                Tap to Recite
+              </span>
+            </div>
+          </button>
+
+          <p className="text-sm font-semibold text-slate-800">
+            Click the button and recite any verse from the Quran
+          </p>
+
+          {/* Small Microphone Selector Dropdown */}
+          <div className="inline-flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 shadow-2xs">
+            <FiMic className="w-4 h-4 text-blue-600 shrink-0" />
+            <select
+              value={selectedDeviceId}
+              onChange={(e) => setSelectedDeviceId(e.target.value)}
+              onClick={ensureMicrophonePermissions}
+              disabled={isRecording || uploading}
+              className="text-xs font-medium text-slate-700 bg-transparent border-0 focus:ring-0 cursor-pointer pr-4 py-0.5 outline-none max-w-[200px] sm:max-w-[260px] truncate"
+            >
+              <option value="">Default Microphone</option>
+              {audioDevices.map((mic, idx) => (
+                <option key={mic.deviceId || idx} value={mic.deviceId}>
+                  {mic.label || `Microphone ${idx + 1}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Drag and drop prompt */}
+          <div className="pt-2 border-t border-slate-100 w-full flex items-center justify-center space-x-1.5 text-xs text-slate-500">
+            <FiUploadCloud className="w-4 h-4 text-slate-400" />
+            <span>or drag & drop an audio recording here •</span>
+            <button
+              type="button"
+              onClick={handleBrowseClick}
+              className="text-blue-600 hover:text-blue-700 font-semibold underline underline-offset-2 cursor-pointer"
+            >
+              choose file
+            </button>
           </div>
         </div>
       )}
@@ -431,6 +464,13 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
       )}
     </div>
   );
+};
+
+AudioUpload.propTypes = {
+  onUploadStart: PropTypes.func,
+  onUploadProgress: PropTypes.func,
+  onUploadSuccess: PropTypes.func,
+  onUploadError: PropTypes.func,
 };
 
 export default AudioUpload;
