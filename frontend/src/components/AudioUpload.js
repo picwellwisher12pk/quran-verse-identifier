@@ -30,6 +30,10 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
     stopRecording,
     cleanup: cleanupRecorder,
     analyserRef,
+    audioDevices,
+    selectedDeviceId,
+    setSelectedDeviceId,
+    ensureMicrophonePermissions,
   } = useAudioRecorder({
     onRecordingComplete: ({ file, url }) => {
       setSelectedFile(file);
@@ -221,7 +225,7 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
             />
 
             {/* Record Button with Speech Recognition */}
-            <div className="flex flex-col">
+            <div className="flex flex-col justify-between space-y-3">
               <button
                 type="button"
                 onClick={isRecording ? handleStopRecording : handleStartRecording}
@@ -250,6 +254,36 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
                   {isRecording ? 'Click when recitation ends' : 'Click to start reciting'}
                 </span>
               </button>
+
+              {/* Microphone Device Selector */}
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between text-xs text-slate-600 mb-1.5 px-0.5">
+                  <span className="font-medium flex items-center space-x-1.5">
+                    <FiMic className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Input Microphone</span>
+                  </span>
+                  {audioDevices.length > 0 && (
+                    <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/70 px-1.5 py-0.5 rounded-md">
+                      {audioDevices.length} available
+                    </span>
+                  )}
+                </div>
+
+                <select
+                  value={selectedDeviceId}
+                  onChange={(e) => setSelectedDeviceId(e.target.value)}
+                  onClick={ensureMicrophonePermissions}
+                  disabled={isRecording || uploading}
+                  className="w-full text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg py-2 px-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 truncate shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">Default System Microphone</option>
+                  {audioDevices.map((mic, idx) => (
+                    <option key={mic.deviceId || idx} value={mic.deviceId}>
+                      {mic.label || `Microphone ${idx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 export const useAudioRecorder = (options = {}) => {
   const { onRecordingComplete } = options;
@@ -7,12 +7,60 @@ export const useAudioRecorder = (options = {}) => {
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioUrl, setAudioUrl] = useState('');
   
+  // Microphone device enumeration
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState('');
+
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const streamRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
+
+  // Enumerate available audio input devices
+  const refreshAudioDevices = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices
+        .filter(d => d.kind === 'audioinput')
+        .map((d, index) => ({
+          deviceId: d.deviceId,
+          label: d.label || `Microphone ${index + 1}`
+        }));
+      setAudioDevices(mics);
+    } catch (err) {
+      console.warn('Error enumerating audio devices:', err);
+    }
+  }, []);
+
+  // Listen for device change events (e.g. mic plugged/unplugged)
+  useEffect(() => {
+    refreshAudioDevices();
+
+    if (navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', refreshAudioDevices);
+      return () => {
+        navigator.mediaDevices.removeEventListener('devicechange', refreshAudioDevices);
+      };
+    }
+  }, [refreshAudioDevices]);
+
+  // Ensure labels are unlocked if user focuses or opens the mic selector
+  const ensureMicrophonePermissions = useCallback(async () => {
+    if (audioDevices.length > 0 && audioDevices.some(d => d.label && !d.label.startsWith('Microphone '))) {
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      tempStream.getTracks().forEach(t => t.stop());
+      await refreshAudioDevices();
+    } catch (e) {
+      // Permission not yet granted; will prompt when recording starts
+    }
+  }, [audioDevices, refreshAudioDevices]);
 
   const cleanup = useCallback(() => {
     if (mediaRecorderRef.current?.state !== 'inactive') {
@@ -47,17 +95,45 @@ export const useAudioRecorder = (options = {}) => {
       setError(null);
       audioChunksRef.current = [];
       
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-          sampleRate: 48000,
-        },
-      });
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+        sampleRate: 48000,
+      };
+
+      if (selectedDeviceId) {
+        audioConstraints.deviceId = { exact: selectedDeviceId };
+      }
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+        });
+      } catch (devErr) {
+        // Fallback to default audio input if exact device is not accessible
+        if (selectedDeviceId) {
+          console.warn('Selected mic failed, falling back to default:', devErr);
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+              sampleRate: 48000,
+            },
+          });
+        } else {
+          throw devErr;
+        }
+      }
       
       streamRef.current = stream;
+      
+      // Refresh audio devices now that permissions have been granted
+      refreshAudioDevices();
       
       // Set up audio context and analyser
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -117,7 +193,7 @@ export const useAudioRecorder = (options = {}) => {
       await cleanup();
       throw new Error(errorMessage);
     }
-  }, [cleanup]);
+  }, [cleanup, selectedDeviceId, refreshAudioDevices]);
 
   const stopRecording = useCallback(async () => {
     if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
@@ -180,5 +256,10 @@ export const useAudioRecorder = (options = {}) => {
     audioContextRef,
     analyserRef,
     animationFrameRef,
+    audioDevices,
+    selectedDeviceId,
+    setSelectedDeviceId,
+    refreshAudioDevices,
+    ensureMicrophonePermissions,
   };
 };
