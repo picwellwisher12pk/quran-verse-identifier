@@ -69,6 +69,7 @@ async def health_check():
 static_dir = None
 for candidate in [
     Path(__file__).parent.parent / "static",
+    Path(__file__).parent.parent.parent / "static",
     Path(__file__).parent.parent / "frontend_build",
     Path(__file__).parent.parent.parent / "frontend" / "build",
 ]:

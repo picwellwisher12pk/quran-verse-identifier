@@ -3,9 +3,9 @@ title: Quran Verse Identifier
 emoji: 📖
 colorFrom: green
 colorTo: emerald
-sdk: docker
+sdk: gradio
+app_file: run.py
 pinned: false
-app_port: 7860
 ---
 
 # Quran Verse Identifier

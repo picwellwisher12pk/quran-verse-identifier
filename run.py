@@ -1,153 +1,69 @@
-#!/usr/bin/env python3
-"""
-Development server runner for Quran Verse Identifier
-Starts both backend and frontend servers concurrently
-"""
-
 import os
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
 import sys
-import subprocess
-import threading
-import time
-import platform
-import signal
+from pathlib import Path
 
-class ServerManager:
-    def __init__(self):
-        self.backend_process = None
-        self.frontend_process = None
-        self.running = True
+# Add backend directory to sys.path
+backend_path = (Path(__file__).parent / "backend").resolve()
+sys.path.insert(0, str(backend_path))
 
-    def start_backend(self):
-        """Start the FastAPI backend server"""
-        backend_dir = os.path.join(os.getcwd(), "backend")
-        python_path = sys.executable
+from app.main import app as fastapi_app
 
-        backend_env = os.environ.copy()
-        backend_env["OPENBLAS_NUM_THREADS"] = "1"
-        backend_env["MKL_NUM_THREADS"] = "1"
-        backend_env["OMP_NUM_THREADS"] = "1"
+# Mount Gradio interface if gradio is available (for Hugging Face Spaces Gradio SDK)
+try:
+    import gradio as gr
+    from app.services.arabic_matcher import ArabicMatcher
 
-        try:
-            print("🚀 Starting Backend Server...")
-            self.backend_process = subprocess.Popen(
-                [python_path, "run.py"],
-                cwd=backend_dir,
-                env=backend_env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True
+    matcher = ArabicMatcher()
+    matcher.initialize()
+
+    def search_verse_text(query):
+        if not query or not query.strip():
+            return "Please enter an Arabic verse phrase."
+        matches = matcher.match_text(query.strip(), limit=5)
+        if not matches:
+            return "No matching verses found."
+
+        output = []
+        for i, m in enumerate(matches, 1):
+            v = m["verse"]
+            output.append(
+                f"### #{i} Surah {v['surah_name_english']} ({v['surah_name_arabic']}) {v['surah_number']}:{v['ayah_number']}\n"
+                f"**Match Confidence:** {int(m['confidence'] * 100)}%\n\n"
+                f"> **{v['arabic_text']}**\n\n"
+                f"*Phonetic Transliteration:* {v.get('transliteration', '')}\n\n"
+                f"*Translation:* {v.get('english_translation', '')}"
             )
+        return "\n\n---\n\n".join(output)
 
-            # Monitor backend output
-            for line in iter(self.backend_process.stdout.readline, ''):
-                if not self.running:
-                    break
-                print(f"[Backend] {line.strip()}")
+    with gr.Blocks(title="Quran Verse Identifier", theme=gr.themes.Soft()) as demo:
+        gr.Markdown("""
+        # 📖 Quran Verse Identifier
+        Instant recitation identification across all 6,236 verses using phonetic normalization and audio intelligence.
+        """)
 
-        except Exception as e:
-            print(f"❌ Failed to start backend: {e}")
+        with gr.Row():
+            with gr.Column():
+                query_input = gr.Textbox(
+                    label="Recited Arabic Text",
+                    placeholder="e.g. الحمد لله رب العالمين or قل هو الله احد",
+                    lines=2
+                )
+                search_btn = gr.Button("Search Across 6,236 Verses", variant="primary")
+            with gr.Column():
+                result_output = gr.Markdown(label="Identification Results")
 
-    def start_frontend(self):
-        """Start the React frontend server using bun (or npm fallback)"""
-        time.sleep(2)  # Give backend time to start
+        search_btn.click(search_verse_text, inputs=[query_input], outputs=[result_output])
 
-        frontend_dir = os.path.join(os.getcwd(), "frontend")
-        frontend_cmd = "bun" if subprocess.run("bun --version", shell=True, capture_output=True).returncode == 0 else "npm"
-
-        try:
-            print(f"🚀 Starting Frontend Server ({frontend_cmd} start)...")
-
-            self.frontend_process = subprocess.Popen(
-                [frontend_cmd, "start"],
-                cwd=frontend_dir,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
-                shell=True
-            )
-
-            # Monitor frontend output
-            for line in iter(self.frontend_process.stdout.readline, ''):
-                if not self.running:
-                    break
-                print(f"[Frontend] {line.strip()}")
-
-        except Exception as e:
-            print(f"❌ Failed to start frontend: {e}")
-
-    def stop_servers(self):
-        """Stop both servers gracefully"""
-        print("\n🛑 Stopping servers...")
-        self.running = False
-
-        if self.backend_process:
-            try:
-                self.backend_process.terminate()
-                self.backend_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self.backend_process.kill()
-            except Exception as e:
-                print(f"Error stopping backend: {e}")
-
-        if self.frontend_process:
-            try:
-                self.frontend_process.terminate()
-                self.frontend_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self.frontend_process.kill()
-            except Exception as e:
-                print(f"Error stopping frontend: {e}")
-
-    def signal_handler(self, signum, frame):
-        """Handle interrupt signals"""
-        self.stop_servers()
-        sys.exit(0)
-
-    def run(self):
-        """Run both servers concurrently"""
-        # Setup signal handlers
-        signal.signal(signal.SIGINT, self.signal_handler)
-        signal.signal(signal.SIGTERM, self.signal_handler)
-
-        print("🌟 Quran Verse Identifier Development Server")
-        print("=" * 50)
-        print("Backend: http://localhost:8000")
-        print("Frontend: http://localhost:3000")
-        print("API Docs: http://localhost:8000/docs")
-        print("=" * 50)
-        print("Press Ctrl+C to stop\n")
-
-        # Start servers in separate threads
-        backend_thread = threading.Thread(target=self.start_backend, daemon=True)
-        frontend_thread = threading.Thread(target=self.start_frontend, daemon=True)
-
-        backend_thread.start()
-        frontend_thread.start()
-
-        try:
-            # Keep main thread alive
-            while self.running:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            self.stop_servers()
-
-def main():
-    """Main function"""
-    # Check if we're in the right directory
-    if not os.path.exists("backend") or not os.path.exists("frontend"):
-        print("❌ Error: backend and frontend directories not found")
-        print("Make sure you're running this from the project root directory")
-        return False
-
-    server_manager = ServerManager()
-    server_manager.run()
-    return True
+    # Mount Gradio onto the FastAPI app at /gradio
+    app = gr.mount_gradio_app(fastapi_app, demo, path="/gradio")
+except Exception:
+    app = fastapi_app
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    import uvicorn
+    port = int(os.environ.get("PORT", 7860))
+    uvicorn.run(app, host="0.0.0.0", port=port)
