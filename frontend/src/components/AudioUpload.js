@@ -330,6 +330,15 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
         /* STATE 2: AUDIO READY (MINIMAL RECORDED WAVE & CONTROLS)      */
         /* ============================================================ */
         <div className="space-y-4 max-w-md mx-auto text-center py-2">
+          {/* Generated Arabic Recitation Text if detected */}
+          {liveTranscript && (
+            <div className="py-2 px-3 animate-fade-in">
+              <p dir="rtl" className="font-quran text-2xl sm:text-3xl text-slate-900 leading-relaxed tracking-wide">
+                {liveTranscript}
+              </p>
+            </div>
+          )}
+
           {/* Audio Player: Recorded Wave Graphics + Play/Pause & Volume */}
           <AudioPlayer audioUrl={currentAudioUrl} />
 
