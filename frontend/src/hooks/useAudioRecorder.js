@@ -70,14 +70,27 @@ export const useAudioRecorder = (options = {}) => {
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
       
+      // Determine best supported MIME type
+      let mimeType = '';
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        }
+      }
+
       // Set up media recorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        audioBitsPerSecond: 128000,
-        mimeType: 'audio/webm;codecs=opus',
-      });
+      const mediaRecorderOptions = { audioBitsPerSecond: 128000 };
+      if (mimeType) {
+        mediaRecorderOptions.mimeType = mimeType;
+      }
+      const mediaRecorder = new MediaRecorder(stream, mediaRecorderOptions);
       
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
@@ -120,19 +133,19 @@ export const useAudioRecorder = (options = {}) => {
       // Wait for the final data
       const blob = await new Promise((resolve) => {
         const onStop = () => {
-          const blob = new Blob(audioChunksRef.current, {
-            type: 'audio/webm;codecs=opus'
-          });
+          const type = mediaRecorderRef.current?.mimeType || 'audio/webm';
+          const finalBlob = new Blob(audioChunksRef.current, { type });
           mediaRecorderRef.current?.removeEventListener('stop', onStop);
-          resolve(blob);
+          resolve(finalBlob);
         };
         
         mediaRecorderRef.current?.addEventListener('stop', onStop, { once: true });
       });
       
       const url = URL.createObjectURL(blob);
-      const file = new File([blob], `recording_${Date.now()}.webm`, {
-        type: 'audio/webm',
+      const ext = blob.type.includes('mp4') ? 'mp4' : blob.type.includes('ogg') ? 'ogg' : 'webm';
+      const file = new File([blob], `recording_${Date.now()}.${ext}`, {
+        type: blob.type || 'audio/webm',
         lastModified: Date.now(),
       });
       

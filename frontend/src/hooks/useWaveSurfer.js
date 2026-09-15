@@ -6,6 +6,7 @@ export const useWaveSurfer = (containerRef, audioUrl, options = {}) => {
   const [waveformReady, setWaveformReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -14,10 +15,12 @@ export const useWaveSurfer = (containerRef, audioUrl, options = {}) => {
       setWaveformReady(false);
       setCurrentTime(0);
       setDuration(0);
+      setIsPlaying(false);
       return;
     }
 
     setWaveformReady(false);
+    setIsPlaying(false);
 
     const ws = WaveSurfer.create({
       container: containerRef.current,
@@ -35,22 +38,53 @@ export const useWaveSurfer = (containerRef, audioUrl, options = {}) => {
       ...optionsRef.current,
     });
 
+    const updateDuration = () => {
+      const d = ws.getDuration();
+      if (d && isFinite(d) && d > 0) {
+        setDuration(d);
+      }
+    };
+
     ws.on('ready', () => {
       setWaveformReady(true);
-      setDuration(ws.getDuration() || 0);
+      updateDuration();
+    });
+
+    ws.on('decode', (d) => {
+      setWaveformReady(true);
+      if (d && isFinite(d) && d > 0) {
+        setDuration(d);
+      } else {
+        updateDuration();
+      }
+    });
+
+    ws.on('play', () => {
+      setIsPlaying(true);
+    });
+
+    ws.on('pause', () => {
+      setIsPlaying(false);
+    });
+
+    ws.on('finish', () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
     });
 
     ws.on('timeupdate', (time) => {
       setCurrentTime(time || ws.getCurrentTime() || 0);
+      updateDuration();
     });
 
-    ws.on('finish', () => {
-      setCurrentTime(0);
+    ws.on('seeking', (time) => {
+      setCurrentTime(time || ws.getCurrentTime() || 0);
     });
 
     ws.on('error', (err) => {
       console.error('WaveSurfer error:', err);
       setWaveformReady(false);
+      setIsPlaying(false);
     });
 
     setWavesurfer(ws);
@@ -63,6 +97,7 @@ export const useWaveSurfer = (containerRef, audioUrl, options = {}) => {
       }
       setWavesurfer(null);
       setWaveformReady(false);
+      setIsPlaying(false);
     };
   }, [containerRef, audioUrl]);
 
@@ -71,6 +106,7 @@ export const useWaveSurfer = (containerRef, audioUrl, options = {}) => {
     waveformReady,
     currentTime,
     duration,
+    isPlaying,
   };
 };
 

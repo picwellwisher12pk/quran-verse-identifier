@@ -14,9 +14,6 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
   const [progress, setProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const [currentAudioUrl, setCurrentAudioUrl] = useState('');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.8);
-  const [isMuted, setIsMuted] = useState(false);
 
   // Live Speech Recognition state
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -39,8 +36,6 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
       setCurrentAudioUrl(url);
     }
   });
-
-  const wavesurferRef = useRef(null);
 
   // Initialize Speech Recognition API
   useEffect(() => {
@@ -73,6 +68,8 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
 
   // Start recording with mic + speech recognition
   const handleStartRecording = useCallback(() => {
+    setSelectedFile(null);
+    setCurrentAudioUrl('');
     setLiveTranscript('');
     startRecording();
     if (recognitionRef.current) {
@@ -159,38 +156,8 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
     }
   }, [textQuery, onUploadStart, onUploadSuccess, onUploadError]);
 
-  // Audio player callbacks
-  const handlePlayPause = useCallback(() => {
-    if (wavesurferRef.current) {
-      wavesurferRef.current.playPause();
-      setIsPlaying(!isPlaying);
-    }
-  }, [isPlaying]);
-
-  const handleSkip = useCallback((seconds) => {
-    if (wavesurferRef.current) {
-      wavesurferRef.current.skip(seconds);
-    }
-  }, []);
-
-  const handleVolumeChange = useCallback((newVolume) => {
-    setVolume(newVolume);
-    if (wavesurferRef.current) {
-      wavesurferRef.current.setVolume(newVolume);
-    }
-  }, []);
-
-  const toggleMute = useCallback(() => {
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    if (wavesurferRef.current) {
-      wavesurferRef.current.setMuted(newMuted);
-    }
-  }, [isMuted]);
-
   // Clean up
   useEffect(() => {
-    const currentWaveSurfer = wavesurferRef.current;
     return () => {
       cleanupRecorder();
       if (recognitionRef.current) {
@@ -199,9 +166,6 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
         } catch (e) {
           // ignore
         }
-      }
-      if (currentWaveSurfer) {
-        currentWaveSurfer.destroy();
       }
     };
   }, [cleanupRecorder]);
@@ -321,13 +285,6 @@ const AudioUpload = ({ onUploadStart, onUploadSuccess, onUploadError }) => {
                 audioUrl={currentAudioUrl}
                 isRecording={isRecording}
                 analyser={analyserRef.current}
-                onPlayPause={handlePlayPause}
-                onSkip={handleSkip}
-                onMute={toggleMute}
-                isMuted={isMuted}
-                onVolumeChange={handleVolumeChange}
-                volume={volume}
-                isPlaying={isPlaying}
               />
             </div>
           )}
