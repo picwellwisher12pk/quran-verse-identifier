@@ -19,9 +19,27 @@ export async function initServices() {
 }
 
 export async function apiRoutes(fastify, options) {
+  // Global route error handler for informative error messages
+  fastify.setErrorHandler((error, request, reply) => {
+    fastify.log.error(error);
+    const statusCode = error.statusCode || 500;
+    const clientMessage =
+      error.message ||
+      (statusCode === 500
+        ? "Internal server processing error. Please try reciting again or check your audio file."
+        : "An error occurred while processing your request.");
+
+    reply.code(statusCode).send({
+      success: false,
+      detail: clientMessage,
+      error: error.name || "ServerError",
+      statusCode
+    });
+  });
+
   /**
    * POST /api/identify
-   * Fastify multipart & transcript handler with resilient stream handling
+   * Fastify multipart & transcript handler with clear error responses
    */
   fastify.post("/identify", async (req, reply) => {
     const startTime = Date.now();
@@ -45,7 +63,7 @@ export async function apiRoutes(fastify, options) {
             }
           }
         } catch (mpErr) {
-          console.warn("[Identify] Multipart parse error:", mpErr.message);
+          fastify.log.warn("[Identify] Multipart parse warning: " + mpErr.message);
         }
       } else if (req.body) {
         transcript = req.body.transcript || "";
@@ -54,7 +72,8 @@ export async function apiRoutes(fastify, options) {
       if (!fileSize && (!transcript || !transcript.trim())) {
         reply.code(400);
         return {
-          detail: "Either an audio file or an Arabic recitation transcript must be provided"
+          success: false,
+          detail: "Either an audio recitation recording or an Arabic speech transcript must be provided."
         };
       }
 
@@ -117,21 +136,21 @@ export async function apiRoutes(fastify, options) {
         processing_time: processingTime,
         message: sortedMatches.length > 0
           ? `Found ${sortedMatches.length} candidate verses`
-          : "No verses identified above confidence threshold"
+          : "No verses matched above the confidence threshold. Try reciting more clearly or closer to the microphone."
       };
     } catch (error) {
       const processingTime = Math.round((Date.now() - startTime) / 10) / 100;
-      console.error("Error in /api/identify:", error);
+      fastify.log.error(error);
+      reply.code(500);
       return {
         success: false,
-        matches: [],
+        detail: `Identification error: ${error.message || "Failed to process audio recording."}`,
         file_info: {
           file_name: fileName,
           file_size: fileSize,
           content_type: contentType
         },
-        processing_time: processingTime,
-        message: `Identification error: ${error.message}`
+        processing_time: processingTime
       };
     }
   });
@@ -143,6 +162,14 @@ export async function apiRoutes(fastify, options) {
     const startTime = Date.now();
     const text = req.body?.text || "";
     const limit = req.body?.limit || 5;
+
+    if (!text || text.trim().length < 2) {
+      reply.code(400);
+      return {
+        success: false,
+        detail: "Please provide at least 2 Arabic characters to search for."
+      };
+    }
 
     try {
       const matches = arabicMatcher.matchText(text, limit, 0.30);
@@ -157,20 +184,22 @@ export async function apiRoutes(fastify, options) {
           content_type: "text/plain"
         },
         processing_time: processingTime,
-        message: `Found ${matches.length} matching verses`
+        message: matches.length > 0
+          ? `Found ${matches.length} matching verses`
+          : "No matching verses found for this text query."
       };
     } catch (error) {
       const processingTime = Math.round((Date.now() - startTime) / 10) / 100;
+      reply.code(500);
       return {
         success: false,
-        matches: [],
+        detail: `Search error: ${error.message || "Failed to search Quran text database."}`,
         file_info: {
           file_name: "text_query",
           file_size: 0,
           content_type: "text/plain"
         },
-        processing_time: processingTime,
-        message: `Search error: ${error.message}`
+        processing_time: processingTime
       };
     }
   });
@@ -183,7 +212,7 @@ export async function apiRoutes(fastify, options) {
       return await getDatabaseStats();
     } catch (err) {
       reply.code(500);
-      return { detail: "Error retrieving database statistics" };
+      return { detail: `Error retrieving database statistics: ${err.message}` };
     }
   });
 
@@ -195,7 +224,7 @@ export async function apiRoutes(fastify, options) {
       return await getAllSurahs();
     } catch (err) {
       reply.code(500);
-      return { detail: "Error retrieving surahs" };
+      return { detail: `Error retrieving Surahs: ${err.message}` };
     }
   });
 
@@ -208,11 +237,11 @@ export async function apiRoutes(fastify, options) {
 
     if (isNaN(surahNumber) || surahNumber < 1 || surahNumber > 114) {
       reply.code(400);
-      return { detail: "Surah number must be between 1 and 114" };
+      return { detail: "Surah number must be an integer between 1 and 114" };
     }
     if (isNaN(ayahNumber) || ayahNumber < 1) {
       reply.code(400);
-      return { detail: "Ayah number must be positive" };
+      return { detail: "Ayah number must be a positive integer" };
     }
 
     try {
@@ -224,7 +253,7 @@ export async function apiRoutes(fastify, options) {
       return verse;
     } catch (err) {
       reply.code(500);
-      return { detail: "Error retrieving verse" };
+      return { detail: `Error retrieving verse: ${err.message}` };
     }
   });
 
@@ -250,7 +279,7 @@ export async function apiRoutes(fastify, options) {
       };
     } catch (err) {
       reply.code(500);
-      return { detail: "Error searching verses" };
+      return { detail: `Error searching verses: ${err.message}` };
     }
   });
 
@@ -285,7 +314,7 @@ export async function apiRoutes(fastify, options) {
       version: "1.0.0",
       framework: "Fastify 5",
       name: "Quran Verse Identifier API",
-      description: "High-throughput Fastify API for identifying Quran verses"
+      description: "High-throughput Fastify API with descriptive error reporting"
     };
   });
 }

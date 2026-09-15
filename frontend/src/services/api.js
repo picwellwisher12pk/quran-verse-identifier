@@ -199,21 +199,23 @@ export const apiService = {
       // Server responded with error status
       const { status, data } = error.response;
 
+      const serverMessage = data?.detail || data?.message || data?.error;
+
       switch (status) {
         case 400:
-          return new Error(data.detail || 'Bad request - please check your input');
+          return new Error(serverMessage || 'Bad request - please check your input');
         case 404:
-          return new Error('Resource not found');
+          return new Error(serverMessage || 'Resource not found');
         case 413:
-          return new Error('File too large - please try a smaller audio file');
+          return new Error('File too large - please try a smaller audio recording (max 25MB)');
         case 422:
-          return new Error(data.detail || 'Invalid file format - please upload an audio file');
+          return new Error(serverMessage || 'Invalid input format - please provide an audio file or recitation transcript');
         case 500:
-          return new Error('Server error - please try again later');
+          return new Error(serverMessage || 'Server encountered an issue identifying this verse. Please try reciting again.');
         case 503:
-          return new Error('Service temporarily unavailable');
+          return new Error(serverMessage || 'Service is temporarily busy. Please retry in a moment.');
         default:
-          return new Error(data.detail || `Server error (${status})`);
+          return new Error(serverMessage || `Server error (${status})`);
       }
     } else if (error.request) {
       // Network error
