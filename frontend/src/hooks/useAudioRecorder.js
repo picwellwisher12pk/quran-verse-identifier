@@ -154,8 +154,8 @@ export const useAudioRecorder = (options = {}) => {
       audioChunksRef.current = [];
       
       const audioConstraints = {
-        echoCancellation: false,
-        noiseSuppression: false,
+        echoCancellation: true,
+        noiseSuppression: true,
         autoGainControl: true,
       };
 
@@ -163,7 +163,7 @@ export const useAudioRecorder = (options = {}) => {
         audioConstraints.deviceId = { exact: selectedDeviceId };
       }
 
-      logger.info(LOG_CATEGORIES.RECORDER, 'Requesting microphone audio stream', {
+      logger.info(LOG_CATEGORIES.RECORDER, 'Requesting microphone audio stream with noise suppression', {
         audioConstraints,
         selectedDeviceId: selectedDeviceId || 'default',
       });
@@ -174,13 +174,17 @@ export const useAudioRecorder = (options = {}) => {
           audio: audioConstraints,
         });
       } catch (devErr) {
-        // Fallback to default audio input if exact device or constraints are not accessible
-        logger.warn(LOG_CATEGORIES.RECORDER, 'Relaxed mic acquisition fallback', {
+        // Fallback to default audio input with noise suppression if exact device fails
+        logger.warn(LOG_CATEGORIES.RECORDER, 'Relaxed mic acquisition fallback with noise suppression', {
           failedDeviceId: selectedDeviceId,
           error: devErr.message,
         });
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
       }
       
