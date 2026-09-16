@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import {
   getAllSurahs,
   getVerse,
@@ -58,6 +60,34 @@ export async function apiRoutes(fastify, options) {
               contentType = part.mimetype || "audio/wav";
               const buffer = await part.toBuffer();
               fileSize = buffer.length;
+
+              // Save copy for audio inspection & debugging
+              try {
+                const inspectionDir = path.resolve(process.cwd(), "audio_inspections");
+                if (!fs.existsSync(inspectionDir)) {
+                  fs.mkdirSync(inspectionDir, { recursive: true });
+                }
+                const safeTime = new Date().toISOString().replace(/[:.]/g, "-");
+                const ext = path.extname(fileName) || (contentType.includes("mp4") ? ".mp4" : contentType.includes("webm") ? ".webm" : ".wav");
+                const savedFile = `rec_${safeTime}${ext}`;
+                const savedPath = path.join(inspectionDir, savedFile);
+                fs.writeFileSync(savedPath, buffer);
+
+                const meta = {
+                  timestamp: new Date().toISOString(),
+                  savedFile,
+                  originalFileName: fileName,
+                  contentType,
+                  fileSizeBytes: fileSize,
+                  fileSizeKB: `${(fileSize / 1024).toFixed(1)} KB`,
+                  userAgent: req.headers["user-agent"] || "unknown",
+                  clientIP: req.ip || req.socket?.remoteAddress,
+                };
+                fs.writeFileSync(path.join(inspectionDir, `rec_${safeTime}_meta.json`), JSON.stringify(meta, null, 2));
+                console.log(`[Audio Inspection] Saved audio to audio_inspections/${savedFile} (${meta.fileSizeKB})`);
+              } catch (saveErr) {
+                console.warn("[Audio Inspection] Could not save inspection audio:", saveErr.message);
+              }
             } else if (part.type === "field" && part.fieldname === "transcript") {
               transcript = part.value || "";
             }

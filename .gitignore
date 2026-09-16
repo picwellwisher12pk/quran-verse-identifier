@@ -43,6 +43,7 @@ ENV/
 *.m4a
 audio_files/
 downloads/
+backend-node/audio_inspections/
 
 # Node.js
 node_modules/

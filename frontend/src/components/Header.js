@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FiDownload } from 'react-icons/fi';
 import { apiService } from '../services/api';
+import logger, { LOG_CATEGORIES } from '../utils/logger';
 
 const Header = () => {
+  const navigate = useNavigate();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [apiStatus, setApiStatus] = useState('checking'); // 'online' | 'offline' | 'checking'
@@ -61,12 +63,27 @@ const Header = () => {
     setDeferredPrompt(null);
   };
 
+  const handleLogoClick = (e) => {
+    e.preventDefault();
+    logger.info(LOG_CATEGORIES.UI, 'Logo clicked -> Resetting all app states to clean home');
+    // Dispatch global custom event so mounted views (Home, AudioUpload) cleanly cancel and reset state
+    window.dispatchEvent(new CustomEvent('app:reset'));
+    if (window.location.pathname !== '/' || window.location.search || window.location.hash) {
+      navigate('/');
+    }
+  };
+
   return (
     <header className="bg-white/95 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100">
       <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-14 sm:h-16">
-          {/* Logo and Brand: 'QVI' on mobile, full text on desktop */}
-          <Link to="/" className="flex items-center space-x-2.5 group">
+          {/* Logo and Brand: Click to reset everything back to initial state */}
+          <Link
+            to="/"
+            onClick={handleLogoClick}
+            title="Reset to home"
+            className="flex items-center space-x-2.5 group cursor-pointer"
+          >
             <div className="w-8 h-8 sm:w-9 sm:h-9 bg-teal-600 rounded-xl flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
               <span className="text-white text-base sm:text-lg select-none">📖</span>
             </div>

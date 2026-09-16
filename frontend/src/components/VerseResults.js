@@ -19,7 +19,7 @@ const VerseResults = ({ results, onNewSearch }) => {
   const [activeFeedbackId, setActiveFeedbackId] = useState(null);
   const [feedbackSuccess, setFeedbackSuccess] = useState({});
   const [copiedId, setCopiedId] = useState(null);
-  const [showTransliteration, setShowTransliteration] = useState(true);
+  const [showTransliteration, setShowTransliteration] = useState(false);
 
   if (!results || !results.matches || results.matches.length === 0) {
     return (
@@ -31,14 +31,14 @@ const VerseResults = ({ results, onNewSearch }) => {
           <h3 className="text-xl font-bold text-gray-900 mb-2">
             No matching verses found
           </h3>
-          <p className="text-gray-600 mb-6 max-w-md mx-auto leading-relaxed">
-            We couldn't identify a matching verse from your audio recording or transcript. Try reciting or recording closer to the microphone, or type the Arabic text directly.
+          <p className="text-gray-600 mb-6 max-w-md mx-auto leading-relaxed text-sm">
+            We couldn't identify a matching verse from your recitation. Try reciting closer to the microphone or with clearer tajweed.
           </p>
           <button
             onClick={onNewSearch}
-            className="btn btn-primary"
+            className="btn btn-primary cursor-pointer"
           >
-            Try Another Recording or Search
+            Try Another Recitation
           </button>
         </div>
       </div>
@@ -49,47 +49,23 @@ const VerseResults = ({ results, onNewSearch }) => {
     const percent = Math.round(confidence * 100);
     if (confidence >= 0.8) {
       return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-          {percent}% Match (High)
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          {percent}% Match
         </span>
       );
     }
     if (confidence >= 0.5) {
       return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-          {percent}% Match (Moderate)
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80">
+          {percent}% Match
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-200">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
         {percent}% Match
       </span>
     );
-  };
-
-  const getSourceBadge = (source) => {
-    switch (source) {
-      case 'hybrid':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
-            ⚡ Hybrid Intelligence
-          </span>
-        );
-      case 'speech_recognition':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-            🎙️ Speech Recognition
-          </span>
-        );
-      case 'acoustic_dtw':
-      default:
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
-            🎵 Acoustic Alignment
-          </span>
-        );
-    }
   };
 
   const handleCopyArabic = (verseId, text) => {
@@ -110,65 +86,69 @@ const VerseResults = ({ results, onNewSearch }) => {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Results Summary Header */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Identification Results
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Matched against complete authentic Quran Uthmani scripture
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              type="button"
-              onClick={() => setShowTransliteration(!showTransliteration)}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <FiBookOpen className="w-3.5 h-3.5" />
-              <span>{showTransliteration ? 'Hide Transliteration' : 'Show Transliteration'}</span>
-            </button>
+    <div className="w-full max-w-3xl mx-auto space-y-4">
+      {/* Sleek Minimal Header: No clutter */}
+      <div className="flex items-center justify-between gap-4 px-1 py-1">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            Matched Verses
+          </h2>
+          <p className="text-xs text-slate-500">
+            {results.matches.length} candidate {results.matches.length === 1 ? 'verse' : 'verses'} found
+          </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={() => setShowTransliteration(!showTransliteration)}
+            className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+          >
+            <FiBookOpen className="w-3.5 h-3.5 text-slate-500" />
+            <span>{showTransliteration ? 'Hide Phonetics' : 'Phonetics'}</span>
+          </button>
 
-            <button
-              onClick={onNewSearch}
-              className="btn btn-outline"
-            >
-              New Search
-            </button>
+          <button
+            type="button"
+            onClick={onNewSearch}
+            className="inline-flex items-center space-x-1 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+          >
+            <span>New Search</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Compact Diagnostic Metric Cards */}
+      <div className="grid grid-cols-3 gap-2 py-0.5 max-w-md mx-auto text-center">
+        <div className="py-1 px-2 bg-slate-50/80 border border-slate-200/70 rounded-lg shadow-2xs">
+          <div className="text-sm sm:text-base font-bold text-teal-700 leading-tight">
+            {results.matches.length}
+          </div>
+          <div className="text-[9px] text-slate-500 font-medium uppercase tracking-wider mt-0.5">
+            {results.matches.length === 1 ? 'Candidate' : 'Candidates'}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 text-center">
-          <div className="p-3 bg-emerald-50 rounded-xl">
-            <div className="text-2xl font-bold text-emerald-700">
-              {results.matches.length}
-            </div>
-            <div className="text-xs text-emerald-800 font-medium mt-0.5">
-              {results.matches.length === 1 ? 'Candidate Verse' : 'Candidate Verses'}
-            </div>
+        <div className="py-1 px-2 bg-slate-50/80 border border-slate-200/70 rounded-lg shadow-2xs">
+          <div className="text-sm sm:text-base font-bold text-slate-800 leading-tight">
+            {results.processing_time ? `${results.processing_time.toFixed(2)}s` : '< 0.5s'}
           </div>
-
-          <div className="p-3 bg-blue-50 rounded-xl">
-            <div className="text-2xl font-bold text-blue-700">
-              {results.processing_time ? `${results.processing_time.toFixed(2)}s` : '< 0.5s'}
-            </div>
-            <div className="text-xs text-blue-800 font-medium mt-0.5">Response Time</div>
+          <div className="text-[9px] text-slate-500 font-medium uppercase tracking-wider mt-0.5">
+            Response Time
           </div>
+        </div>
 
-          <div className="p-3 bg-purple-50 rounded-xl col-span-2 sm:col-span-1">
-            <div className="text-2xl font-bold text-purple-700">
-              {results.matches[0] ? `${Math.round(results.matches[0].confidence * 100)}%` : 'N/A'}
-            </div>
-            <div className="text-xs text-purple-800 font-medium mt-0.5">Top Match Confidence</div>
+        <div className="py-1 px-2 bg-slate-50/80 border border-slate-200/70 rounded-lg shadow-2xs">
+          <div className="text-sm sm:text-base font-bold text-teal-700 leading-tight">
+            {results.matches[0] ? `${Math.round(results.matches[0].confidence * 100)}%` : 'N/A'}
+          </div>
+          <div className="text-[9px] text-slate-500 font-medium uppercase tracking-wider mt-0.5">
+            Top Match
           </div>
         </div>
       </div>
 
       {/* Matches List */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         {results.matches.map((match, index) => {
           const verse = match.verse;
           const isFeedbackOpen = activeFeedbackId === verse.id;
@@ -178,33 +158,29 @@ const VerseResults = ({ results, onNewSearch }) => {
           return (
             <div
               key={verse.id || index}
-              className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md"
+              style={{ animationDelay: `${index * 80}ms` }}
+              className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all hover:shadow-sm animate-slide-up-fade"
             >
               {/* Card Header: Surah metadata, Revelation Badge & Confidence */}
-              <div className="p-5 bg-gradient-to-r from-slate-50 via-gray-50 to-white border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                    #{index + 1}
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {verse.surah_name_english || `Surah ${verse.surah_number}`} : {verse.ayah_number}
-                      </h3>
-                      {verse.surah_name_arabic && (
-                        <span className="font-quran text-lg text-emerald-800 font-bold mr-1">
-                          ({verse.surah_name_arabic})
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2 mt-0.5">
-                      {verse.revelation_type && (
-                        <span className="inline-flex items-center text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                          {verse.revelation_type === 'Meccan' ? '🕋 Meccan' : '🕌 Medinan'}
-                        </span>
-                      )}
-                      {getSourceBadge(match.recognition_source)}
-                    </div>
+              <div className="px-5 py-3.5 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between gap-3">
+                <div className="flex items-center space-x-2.5">
+                  <span className="w-6 h-6 rounded-full bg-teal-600 text-white font-bold text-xs flex items-center justify-center">
+                    {index + 1}
+                  </span>
+                  <div className="flex items-baseline space-x-2">
+                    <h3 className="text-base font-bold text-slate-900">
+                      Surah {verse.surah_name_english || verse.surah_number} : {verse.ayah_number}
+                    </h3>
+                    {verse.surah_name_arabic && (
+                      <span className="font-quran text-base text-teal-800 font-bold">
+                        ({verse.surah_name_arabic})
+                      </span>
+                    )}
+                    {verse.revelation_type && (
+                      <span className="text-[11px] font-medium text-slate-400">
+                        · {verse.revelation_type}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -215,29 +191,29 @@ const VerseResults = ({ results, onNewSearch }) => {
                   <button
                     type="button"
                     onClick={() => setActiveFeedbackId(isFeedbackOpen ? null : verse.id)}
-                    className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Provide feedback on this match"
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors cursor-pointer"
+                    title="Feedback"
                   >
-                    <FiMoreHorizontal className="w-5 h-5" />
+                    <FiMoreHorizontal className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              {/* Card Body */}
-              <div className="p-6 space-y-6">
-                {/* Authentic Arabic Quranic Calligraphy */}
-                <div className="bg-amber-50/50 p-6 rounded-2xl border border-amber-200/60 relative group">
-                  <div className="absolute top-3 left-3 opacity-80 group-hover:opacity-100 transition-opacity">
+              {/* Card Body: Clean, Uncluttered Typography */}
+              <div className="p-5 sm:p-6 space-y-4">
+                {/* Authentic Arabic Quranic Scripture (Borderless, breathing room) */}
+                <div className="relative group pb-3 sm:pb-4">
+                  <div className="flex justify-end pb-1">
                     <button
                       type="button"
                       onClick={() => handleCopyArabic(verse.id, verse.arabic_text)}
-                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-xs font-medium bg-white/90 text-amber-900 hover:bg-white border border-amber-200 shadow-2xs transition-all"
+                      className="inline-flex items-center space-x-1 text-xs text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                       title="Copy Arabic text"
                     >
                       {isCopied ? (
                         <>
-                          <FiCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-700">Copied</span>
+                          <FiCheck className="w-3.5 h-3.5 text-teal-600" />
+                          <span className="text-teal-700 font-medium">Copied</span>
                         </>
                       ) : (
                         <>
@@ -250,44 +226,33 @@ const VerseResults = ({ results, onNewSearch }) => {
 
                   <p
                     dir="rtl"
-                    className="font-quran text-3xl sm:text-4xl text-slate-900 text-right leading-loose select-all pt-2"
+                    className="font-quran text-3xl sm:text-4xl text-slate-900 text-right leading-loose select-all pb-2"
                   >
                     {verse.arabic_text}
-                    <span className="ayah-end text-amber-700 font-bold mx-2">
+                    <span className="ayah-end text-teal-700 font-bold mx-2 select-none">
                       ۝{toArabicDigits(verse.ayah_number)}
                     </span>
                   </p>
                 </div>
 
-                {/* English Transliteration (Pronunciation Guide) */}
+                {/* English Transliteration (Shown if enabled) */}
                 {showTransliteration && verse.transliteration && (
-                  <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center space-x-1">
-                      <span>Phonetic Transliteration</span>
-                    </div>
-                    <p className="text-slate-800 text-base italic font-serif leading-relaxed">
-                      "{verse.transliteration}"
-                    </p>
-                  </div>
+                  <p className="text-slate-500 text-xs sm:text-sm italic font-serif leading-relaxed pt-1">
+                    "{verse.transliteration}"
+                  </p>
                 )}
 
-                {/* English Translation (Saheeh International) */}
+                {/* English Translation (Clear vertical separation from Arabic text) */}
                 {verse.english_translation && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                      English Translation (Saheeh International)
-                    </h4>
-                    <p className="text-slate-800 text-base leading-relaxed">
+                  <div className="pt-2 sm:pt-3">
+                    <p className="text-slate-700 text-sm sm:text-base leading-relaxed">
                       {verse.english_translation}
                     </p>
                   </div>
                 )}
 
-                {/* Reference Audio Player with Multi-Reciter Selection */}
-                <div className="pt-2">
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    Listen to Reference Recitation
-                  </h4>
+                {/* Reference Audio Player */}
+                <div className="pt-3 sm:pt-4">
                   <AudioPlayer
                     surahNumber={verse.surah_number}
                     ayahNumber={verse.ayah_number}
@@ -296,8 +261,8 @@ const VerseResults = ({ results, onNewSearch }) => {
 
                 {/* Feedback Section */}
                 {isFeedbackSent ? (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm flex items-center">
-                    <span className="mr-2">✓</span> Thank you! Your feedback has been recorded.
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center">
+                    <span className="mr-1.5">✓</span> Thank you! Your feedback has been recorded.
                   </div>
                 ) : isFeedbackOpen ? (
                   <div className="pt-2">
@@ -314,16 +279,6 @@ const VerseResults = ({ results, onNewSearch }) => {
             </div>
           );
         })}
-      </div>
-
-      {/* Bottom Action */}
-      <div className="text-center pt-4">
-        <button
-          onClick={onNewSearch}
-          className="btn btn-primary px-8 py-3 text-base shadow-sm"
-        >
-          Identify Another Verse
-        </button>
       </div>
     </div>
   );

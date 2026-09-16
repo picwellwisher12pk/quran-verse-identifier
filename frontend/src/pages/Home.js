@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AudioUpload from '../components/AudioUpload';
 import VerseResults from '../components/VerseResults';
 import IdentifyingProgress from '../components/IdentifyingProgress';
@@ -12,6 +12,23 @@ const Home = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadInfo, setUploadInfo] = useState({});
   const [error, setError] = useState(null);
+
+  // Listen for global reset (e.g. user clicked header logo)
+  useEffect(() => {
+    const handleAppReset = () => {
+      logger.info(LOG_CATEGORIES.UI, 'Home received app:reset -> Resetting all states to clean idle home');
+      apiService.cancelAllRequests();
+      setLoading(false);
+      setResults(null);
+      setOriginalFile(null);
+      setError(null);
+      setUploadProgress(0);
+      setUploadInfo({});
+    };
+
+    window.addEventListener('app:reset', handleAppReset);
+    return () => window.removeEventListener('app:reset', handleAppReset);
+  }, []);
 
   const handleUploadStart = (info = {}) => {
     logger.info(LOG_CATEGORIES.UI, 'Home transition -> IDENTIFYING (uploading & matching)', info);
@@ -80,26 +97,30 @@ const Home = () => {
 
         {/* Loading Progress State */}
         {loading && (
-          <IdentifyingProgress
-            uploadInfo={uploadInfo}
-            progress={uploadProgress}
-            onCancel={handleCancel}
-          />
+          <div className="animate-phase-in">
+            <IdentifyingProgress
+              uploadInfo={uploadInfo}
+              progress={uploadProgress}
+              onCancel={handleCancel}
+            />
+          </div>
         )}
 
         {/* Clean Hero Search State (zero card box, uncluttered) */}
         {!loading && !results && !error && (
-          <AudioUpload
-            onUploadStart={handleUploadStart}
-            onUploadProgress={handleUploadProgress}
-            onUploadSuccess={handleUploadSuccess}
-            onUploadError={handleUploadError}
-          />
+          <div className="animate-phase-in">
+            <AudioUpload
+              onUploadStart={handleUploadStart}
+              onUploadProgress={handleUploadProgress}
+              onUploadSuccess={handleUploadSuccess}
+              onUploadError={handleUploadError}
+            />
+          </div>
         )}
 
         {/* Error Display */}
         {error && !loading && (
-          <div className="max-w-lg mx-auto my-6 bg-white p-6 rounded-2xl border border-red-200 shadow-xs text-center space-y-3">
+          <div className="animate-phase-in max-w-lg mx-auto my-6 bg-white p-6 rounded-2xl border border-red-200 shadow-xs text-center space-y-3">
             <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-lg">
               ⚠️
             </div>
@@ -119,11 +140,13 @@ const Home = () => {
 
         {/* Results Display */}
         {results && !loading && (
-          <VerseResults
-            results={results}
-            originalFile={originalFile}
-            onNewSearch={handleNewSearch}
-          />
+          <div className="animate-slide-up-fade">
+            <VerseResults
+              results={results}
+              originalFile={originalFile}
+              onNewSearch={handleNewSearch}
+            />
+          </div>
         )}
 
       </div>

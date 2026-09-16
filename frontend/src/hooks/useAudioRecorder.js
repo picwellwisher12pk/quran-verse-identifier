@@ -19,7 +19,7 @@ export const useAudioRecorder = (options = {}) => {
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
 
-  // Enumerate available audio input devices
+  // Enumerate available audio input devices (filtering virtual duplicates and detecting distinct physical mics)
   const refreshAudioDevices = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) {
       logger.warn(LOG_CATEGORIES.RECORDER, 'navigator.mediaDevices.enumerateDevices is not available');
@@ -27,14 +27,58 @@ export const useAudioRecorder = (options = {}) => {
     }
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const mics = devices
-        .filter(d => d.kind === 'audioinput')
-        .map((d, index) => ({
-          deviceId: d.deviceId,
-          label: d.label || `Microphone ${index + 1}`
-        }));
-      logger.info(LOG_CATEGORIES.RECORDER, `Found ${mics.length} audio input device(s)`, mics);
-      setAudioDevices(mics);
+      const rawMics = devices.filter(d => d.kind === 'audioinput');
+
+      // 1. Separate real physical hardware devices from virtual aliases ('default', 'communications')
+      let physicalMics = rawMics.filter(
+        d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications'
+      );
+
+      // If no explicit hardware device IDs are exposed yet (e.g. mobile or pre-permission)
+      if (physicalMics.length === 0 && rawMics.length > 0) {
+        physicalMics = rawMics;
+      }
+
+      // 2. Deduplicate devices sharing the same groupId or same cleaned label
+      const seenGroups = new Set();
+      const seenLabels = new Set();
+      const distinctMics = [];
+
+      for (const mic of physicalMics) {
+        const cleanLabel = (mic.label || '')
+          .replace(/^(Default|Communications)\s*-\s*/i, '')
+          .trim();
+
+        const groupKey = mic.groupId || null;
+        const labelKey = cleanLabel ? cleanLabel.toLowerCase() : null;
+
+        if (groupKey && seenGroups.has(groupKey)) {
+          continue;
+        }
+        if (labelKey && seenLabels.has(labelKey)) {
+          continue;
+        }
+
+        if (groupKey) seenGroups.add(groupKey);
+        if (labelKey) seenLabels.add(labelKey);
+
+        distinctMics.push({
+          deviceId: mic.deviceId,
+          groupId: mic.groupId,
+          label: cleanLabel || mic.label || `Microphone ${distinctMics.length + 1}`
+        });
+      }
+
+      logger.info(LOG_CATEGORIES.RECORDER, `Found ${distinctMics.length} distinct audio input device(s) (from ${rawMics.length} raw entries)`, distinctMics);
+      setAudioDevices(distinctMics);
+
+      // Maintain valid selected device ID
+      setSelectedDeviceId(prev => {
+        if (prev && distinctMics.some(d => d.deviceId === prev)) {
+          return prev;
+        }
+        return distinctMics[0]?.deviceId || '';
+      });
     } catch (err) {
       logger.warn(LOG_CATEGORIES.RECORDER, 'Error enumerating audio devices', err);
     }
@@ -44,10 +88,19 @@ export const useAudioRecorder = (options = {}) => {
   useEffect(() => {
     refreshAudioDevices();
 
-    if (navigator.mediaDevices?.addEventListener) {
-      navigator.mediaDevices.addEventListener('devicechange', refreshAudioDevices);
+    const mediaDev = navigator.mediaDevices;
+    if (mediaDev) {
+      if (mediaDev.addEventListener) {
+        mediaDev.addEventListener('devicechange', refreshAudioDevices);
+      } else {
+        mediaDev.ondevicechange = refreshAudioDevices;
+      }
       return () => {
-        navigator.mediaDevices.removeEventListener('devicechange', refreshAudioDevices);
+        if (mediaDev.removeEventListener) {
+          mediaDev.removeEventListener('devicechange', refreshAudioDevices);
+        } else {
+          mediaDev.ondevicechange = null;
+        }
       };
     }
   }, [refreshAudioDevices]);
@@ -101,11 +154,9 @@ export const useAudioRecorder = (options = {}) => {
       audioChunksRef.current = [];
       
       const audioConstraints = {
-        echoCancellation: true,
-        noiseSuppression: true,
+        echoCancellation: false,
+        noiseSuppression: false,
         autoGainControl: true,
-        channelCount: 1,
-        sampleRate: 48000,
       };
 
       if (selectedDeviceId) {
@@ -123,24 +174,14 @@ export const useAudioRecorder = (options = {}) => {
           audio: audioConstraints,
         });
       } catch (devErr) {
-        // Fallback to default audio input if exact device is not accessible
-        if (selectedDeviceId) {
-          logger.warn(LOG_CATEGORIES.RECORDER, 'Selected mic failed, falling back to default device', {
-            failedDeviceId: selectedDeviceId,
-            error: devErr.message,
-          });
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-              channelCount: 1,
-              sampleRate: 48000,
-            },
-          });
-        } else {
-          throw devErr;
-        }
+        // Fallback to default audio input if exact device or constraints are not accessible
+        logger.warn(LOG_CATEGORIES.RECORDER, 'Relaxed mic acquisition fallback', {
+          failedDeviceId: selectedDeviceId,
+          error: devErr.message,
+        });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
       }
       
       streamRef.current = stream;
@@ -160,9 +201,14 @@ export const useAudioRecorder = (options = {}) => {
       // Refresh audio devices now that permissions have been granted
       refreshAudioDevices();
       
-      // Set up audio context and analyser
+      // Set up audio context and analyser (let hardware use native sample rate on mobile)
       const AudioContext = window.AudioContext || window.webkitAudioContext;
-      const audioContext = new AudioContext({ sampleRate: 48000 });
+      const audioContext = new AudioContext();
+      if (audioContext.state === 'suspended') {
+        try {
+          await audioContext.resume();
+        } catch (e) {}
+      }
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;

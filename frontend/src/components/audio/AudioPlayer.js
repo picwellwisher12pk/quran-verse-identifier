@@ -9,6 +9,7 @@ const AudioPlayer = ({
   isRecording = false,
   analyser,
   className = '',
+  height = 64,
   onPlayPause: externalOnPlayPause,
   onSkip: externalOnSkip,
   onMute: externalOnMute,
@@ -24,7 +25,7 @@ const AudioPlayer = ({
     wavesurfer,
   } = useWaveSurfer(waveformRef, audioUrl, {
     interact: !isRecording,
-    height: 80,
+    height: height,
   });
 
   // Apply volume and muted state to WaveSurfer instance when ready

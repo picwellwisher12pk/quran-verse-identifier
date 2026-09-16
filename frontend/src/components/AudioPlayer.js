@@ -1,15 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import WaveSurfer from 'wavesurfer.js';
-import { FaPlay, FaPause, FaDownload } from 'react-icons/fa';
-import { FiMoreHorizontal } from 'react-icons/fi';
+import { FaPlay, FaPause } from 'react-icons/fa';
 
 const RECITERS = [
-  { id: 'Alafasy_128kbps', name: 'Mishary Rashid Al-Afasy', style: 'Hafs an Asim' },
-  { id: 'Abdul_Basit_Murattal_192kbps', name: 'Abdul Basit Abdul Samad', style: 'Murattal' },
-  { id: 'Minshawy_Murattal_128kbps', name: 'Mohamed Siddiq Al-Minshawi', style: 'Murattal' },
-  { id: 'Husary_128kbps', name: 'Mahmoud Khalil Al-Husary', style: 'Tajweed / Murattal' },
-  { id: 'Abdurrahmaan_As-Sudais_192kbps', name: 'Abdur-Rahman As-Sudais', style: 'Haramain Recitation' },
-  { id: 'Ghamadi_40kbps', name: 'Saad Al-Ghamdi', style: 'Murattal' },
+  { id: 'Alafasy_128kbps', name: 'Mishary Rashid Al-Afasy' },
+  { id: 'Abdul_Basit_Murattal_192kbps', name: 'Abdul Basit (Murattal)' },
+  { id: 'Minshawy_Murattal_128kbps', name: 'Al-Minshawi (Murattal)' },
+  { id: 'Husary_128kbps', name: 'Al-Husary (Murattal)' },
+  { id: 'Abdurrahmaan_As-Sudais_192kbps', name: 'As-Sudais (Haramain)' },
+  { id: 'Ghamadi_40kbps', name: 'Saad Al-Ghamdi' },
 ];
 
 const AudioPlayer = ({ surahNumber, ayahNumber }) => {
@@ -17,217 +15,106 @@ const AudioPlayer = ({ surahNumber, ayahNumber }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [playbackRate, setPlaybackRate] = useState(1.0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
-  const waveformRef = useRef(null);
-  const wavesurfer = useRef(null);
+  const audioRef = useRef(null);
 
-  // Generate EveryAyah CDN audio URL
-  const getAudioUrl = (surah, ayah, reciterId) => {
-    const paddedSurah = surah.toString().padStart(3, '0');
-    const paddedAyah = ayah.toString().padStart(3, '0');
-    return `https://www.everyayah.com/data/${reciterId}/${paddedSurah}${paddedAyah}.mp3`;
+  const paddedSurah = (surahNumber || 1).toString().padStart(3, '0');
+  const paddedAyah = (ayahNumber || 1).toString().padStart(3, '0');
+  const audioUrl = `https://www.everyayah.com/data/${selectedReciter}/${paddedSurah}${paddedAyah}.mp3`;
+
+  useEffect(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.load();
+    }
+  }, [audioUrl]);
+
+  const togglePlayback = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setIsPlaying(false));
+    }
   };
 
-  const audioUrl = getAudioUrl(surahNumber, ayahNumber, selectedReciter);
-
-  // Format time from seconds to MM:SS
   const formatTime = (time) => {
     if (isNaN(time) || time < 0) return '0:00';
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Initialize WaveSurfer
-  useEffect(() => {
-    if (!waveformRef.current) return;
-
-    setLoading(true);
-    setError(null);
-    setIsPlaying(false);
-
-    if (wavesurfer.current) {
-      wavesurfer.current.destroy();
-    }
-
-    try {
-      wavesurfer.current = WaveSurfer.create({
-        container: waveformRef.current,
-        waveColor: '#93c5fd',
-        progressColor: '#2563eb',
-        cursorColor: '#1d4ed8',
-        barWidth: 3,
-        barRadius: 3,
-        cursorWidth: 2,
-        height: 64,
-        barGap: 3,
-        normalize: true,
-      });
-
-      wavesurfer.current.load(audioUrl);
-
-      wavesurfer.current.on('ready', () => {
-        setLoading(false);
-        setDuration(wavesurfer.current.getDuration());
-        wavesurfer.current.setPlaybackRate(playbackRate);
-      });
-
-      wavesurfer.current.on('timeupdate', (time) => {
-        setCurrentTime(time || wavesurfer.current.getCurrentTime());
-      });
-
-      wavesurfer.current.on('finish', () => {
-        setIsPlaying(false);
-        setCurrentTime(0);
-      });
-
-      wavesurfer.current.on('error', (err) => {
-        console.error('WaveSurfer error:', err);
-        setError('Reference audio unavailable from CDN');
-        setLoading(false);
-      });
-    } catch (e) {
-      console.error('Failed to create WaveSurfer:', e);
-      setError('Could not initialize audio visualizer');
-      setLoading(false);
-    }
-
-    return () => {
-      if (wavesurfer.current) {
-        wavesurfer.current.destroy();
-      }
-    };
-  }, [audioUrl, playbackRate]);
-
-  // Update playback rate dynamically
-  useEffect(() => {
-    if (wavesurfer.current && !loading) {
-      wavesurfer.current.setPlaybackRate(playbackRate);
-    }
-  }, [playbackRate, loading]);
-
-  // Handle play/pause
-  const togglePlayback = () => {
-    if (!wavesurfer.current || loading || error) return;
-    wavesurfer.current.playPause();
-    setIsPlaying(wavesurfer.current.isPlaying());
+  const handleSeek = (e) => {
+    if (!audioRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const newTime = pos * duration;
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
   };
 
-  // Change playback speed
-  const changePlaybackRate = (rate) => {
-    setPlaybackRate(rate);
-    setShowSpeedMenu(false);
-  };
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 w-full">
-      {/* Top Controls: Reciter selector & speed */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-        <div className="flex items-center space-x-2">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Qari / Reciter:
-          </span>
-          <select
-            value={selectedReciter}
-            onChange={(e) => setSelectedReciter(e.target.value)}
-            className="text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-          >
-            {RECITERS.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} ({r.style})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Speed and More options */}
-        <div className="flex items-center space-x-2 self-end sm:self-auto">
-          {/* Speed Toggle Chips */}
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
-            {[0.75, 1.0, 1.25].map((rate) => (
-              <button
-                key={rate}
-                type="button"
-                onClick={() => changePlaybackRate(rate)}
-                className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
-                  playbackRate === rate
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {rate}x
-              </button>
-            ))}
-          </div>
-
-          {/* Download button */}
-          <a
-            href={audioUrl}
-            download={`Surah_${surahNumber}_Ayah_${ayahNumber}_${selectedReciter}.mp3`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Download verse audio MP3"
-            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-          >
-            <FaDownload className="w-3.5 h-3.5" />
-          </a>
-
-          {/* Horizontal More button */}
-          <button
-            type="button"
-            onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-            title="More audio options"
-            className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-          >
-            <FiMoreHorizontal className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Waveform visualizer */}
-      <div
-        ref={waveformRef}
-        className="w-full h-16 mb-2 cursor-pointer bg-white rounded-lg p-1 border border-slate-200/60 shadow-xs"
+    <div className="bg-slate-50/90 border border-slate-200/60 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
+      <audio
+        ref={audioRef}
+        src={audioUrl}
+        preload="metadata"
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        onEnded={() => {
+          setIsPlaying(false);
+          setCurrentTime(0);
+        }}
       />
 
-      {/* Bottom Bar: Play/Pause and Time */}
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={togglePlayback}
-            disabled={loading || !!error}
-            className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-all active:scale-95"
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? <FaPause className="w-3.5 h-3.5" /> : <FaPlay className="w-3.5 h-3.5 ml-0.5" />}
-          </button>
+      <div className="flex items-center space-x-2.5 w-full sm:w-auto flex-1">
+        <button
+          type="button"
+          onClick={togglePlayback}
+          aria-label={isPlaying ? 'Pause reference recitation' : 'Play reference recitation'}
+          className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center shadow-2xs transition-transform active:scale-95 shrink-0 cursor-pointer"
+        >
+          {isPlaying ? <FaPause className="w-2.5 h-2.5" /> : <FaPlay className="w-2.5 h-2.5 ml-0.5" />}
+        </button>
 
-          <span className="text-xs font-mono text-slate-600">
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </span>
+        {/* Progress Scrubber */}
+        <div
+          onClick={handleSeek}
+          className="relative flex-1 h-2 bg-slate-200/80 rounded-full cursor-pointer overflow-hidden"
+        >
+          <div
+            className="h-full bg-teal-600 rounded-full transition-all duration-75"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
 
-        <div className="text-xs text-slate-400">
-          Surah {surahNumber}:{ayahNumber}
-        </div>
+        <span className="text-[11px] font-mono text-slate-500 shrink-0">
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
       </div>
 
-      {/* Feedback & Error states */}
-      {loading && (
-        <div className="mt-2 text-xs text-blue-600 font-medium animate-pulse">
-          Loading authentic recitation audio...
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-2 text-xs text-red-500 font-medium">
-          {error}
-        </div>
-      )}
+      <div className="flex items-center space-x-1.5 self-end sm:self-auto shrink-0">
+        <select
+          value={selectedReciter}
+          onChange={(e) => setSelectedReciter(e.target.value)}
+          className="text-[11px] font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
+        >
+          {RECITERS.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 };

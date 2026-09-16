@@ -9,7 +9,7 @@ const TASHKEEL_REGEX = /[\u0617-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u06DF-\u0
 export function normalizeArabic(text) {
   if (!text) return "";
 
-  return text
+  const stripped = text
     .replace(TASHKEEL_REGEX, "")
     .replace(/[إأآٱ]/g, "ا")
     .replace(/ة/g, "ه")
@@ -18,6 +18,29 @@ export function normalizeArabic(text) {
     .replace(/[^\p{L}\p{N}\s]/gu, "")
     .replace(/\s+/g, " ")
     .trim();
+
+  // Remove repeated single words or repeated phrase chunks (caused by mobile STT restarts)
+  let words = stripped.split(/\s+/);
+  let res = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === 0 || words[i] !== words[i - 1]) res.push(words[i]);
+  }
+  for (let n = 4; n >= 2; n--) {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (let i = 0; i <= res.length - 2 * n; i++) {
+        const p1 = res.slice(i, i + n).join(" ");
+        const p2 = res.slice(i + n, i + 2 * n).join(" ");
+        if (p1 === p2) {
+          res.splice(i + n, n);
+          changed = true;
+          break;
+        }
+      }
+    }
+  }
+  return res.join(" ");
 }
 
 /**
