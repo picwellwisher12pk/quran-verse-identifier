@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Request
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse
 import tempfile
 import os
@@ -226,12 +226,13 @@ async def get_verse(surah_number: int, ayah_number: int, db = Depends(get_db)):
             "arabic_text": verse[3],
             "english_translation": verse[4],
             "transliteration": verse[5],
-            "fingerprint_data": verse[6],
-            "created_at": str(verse[7]) if verse[7] else None,
-            "updated_at": str(verse[8]) if verse[8] else None,
-            "surah_name_arabic": verse[9] if len(verse) > 9 else None,
-            "surah_name_english": verse[10] if len(verse) > 10 else None,
-            "revelation_type": verse[11] if len(verse) > 11 else None
+            "urdu_translation": verse[6],
+            "fingerprint_data": verse[7],
+            "created_at": str(verse[8]) if verse[8] else None,
+            "updated_at": str(verse[9]) if verse[9] else None,
+            "surah_name_arabic": verse[10] if len(verse) > 10 else None,
+            "surah_name_english": verse[11] if len(verse) > 11 else None,
+            "revelation_type": verse[12] if len(verse) > 12 else None
         }
 
         return JSONResponse(content=verse_dict)
@@ -268,7 +269,7 @@ async def get_surahs(db = Depends(get_db)):
 
 @router.get("/search")
 async def search_verses(q: str, limit: int = 10, db = Depends(get_db)):
-    """Search verses by text across Arabic, English translation, and transliteration"""
+    """Search verses by text across Arabic, English translation, transliteration, and Urdu translation"""
     try:
         if len(q.strip()) < 2:
             raise HTTPException(status_code=400, detail="Search query must be at least 2 characters")
@@ -287,9 +288,10 @@ async def search_verses(q: str, limit: int = 10, db = Depends(get_db)):
                 "arabic_text": verse[3],
                 "english_translation": verse[4],
                 "transliteration": verse[5],
-                "surah_name_arabic": verse[6] if len(verse) > 6 else None,
-                "surah_name_english": verse[7] if len(verse) > 7 else None,
-                "revelation_type": verse[8] if len(verse) > 8 else None
+                "urdu_translation": verse[6],
+                "surah_name_arabic": verse[7] if len(verse) > 7 else None,
+                "surah_name_english": verse[8] if len(verse) > 8 else None,
+                "revelation_type": verse[9] if len(verse) > 9 else None
             })
 
         return JSONResponse(content={

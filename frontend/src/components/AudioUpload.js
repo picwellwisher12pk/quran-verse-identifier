@@ -745,10 +745,10 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
           </div>
 
           {/* Fixed Gap */}
-          <div className="my-1.5" />
+          <div className="hidden sm:block my-1.5" />
 
-          {/* Slot 2: Mode Selector Tabs (min-h-[76px]) */}
-          <div className="w-full min-h-[76px] flex flex-col items-center justify-center space-y-1.5 py-1 transition-all duration-300 ease-in-out">
+          {/* Slot 2: Mode Selector Tabs (Hidden on mobile, visible on desktop) */}
+          <div className="hidden sm:flex w-full min-h-[76px] flex-col items-center justify-center space-y-1.5 py-1 transition-all duration-300 ease-in-out">
             <div className="inline-flex p-1 bg-slate-100 rounded-full border border-slate-200 shadow-2xs">
               <button
                 type="button"
@@ -776,8 +776,8 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
 
             <p className="text-[11px] text-slate-500 max-w-xs leading-tight">
               {reciteMode === 'stt'
-                ? 'Transcribes your Arabic recitation live on mobile without audio conflict.'
-                : 'Records audio file with relaxed mobile mic constraints and sends to server.'}
+                ? 'Transcribes your Arabic recitation live without audio conflict.'
+                : 'Records audio file with relaxed mic constraints and sends to server.'}
             </p>
           </div>
 

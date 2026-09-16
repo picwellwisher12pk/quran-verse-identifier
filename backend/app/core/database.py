@@ -58,11 +58,13 @@ class DatabaseManager:
                 )
             """)
 
-            # Ensure transliteration column exists for existing DBs
+            # Ensure transliteration and urdu_translation columns exist for existing DBs
             cursor.execute("PRAGMA table_info(verses)")
             columns = [col[1] for col in cursor.fetchall()]
             if "transliteration" not in columns:
                 cursor.execute("ALTER TABLE verses ADD COLUMN transliteration TEXT")
+            if "urdu_translation" not in columns:
+                cursor.execute("ALTER TABLE verses ADD COLUMN urdu_translation TEXT")
 
             # Create indexes for faster queries
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_verses_surah ON verses(surah_number)")
@@ -73,7 +75,8 @@ class DatabaseManager:
             logger.info("Database initialized successfully")
 
     def insert_verse(self, surah_number: int, ayah_number: int, arabic_text: str,
-                    english_translation: str = None, transliteration: str = None, fingerprint_data: str = None):
+                    english_translation: str = None, transliteration: str = None,
+                    urdu_translation: str = None, fingerprint_data: str = None):
         """Insert or update a verse while preserving existing fingerprint data"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -81,15 +84,16 @@ class DatabaseManager:
 
             cursor.execute("""
                 INSERT INTO verses
-                (surah_number, ayah_number, arabic_text, english_translation, transliteration, fingerprint_data, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (surah_number, ayah_number, arabic_text, english_translation, transliteration, urdu_translation, fingerprint_data, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(surah_number, ayah_number) DO UPDATE SET
                     arabic_text = excluded.arabic_text,
                     english_translation = COALESCE(excluded.english_translation, verses.english_translation),
                     transliteration = COALESCE(excluded.transliteration, verses.transliteration),
+                    urdu_translation = COALESCE(excluded.urdu_translation, verses.urdu_translation),
                     fingerprint_data = COALESCE(excluded.fingerprint_data, verses.fingerprint_data),
                     updated_at = excluded.updated_at
-            """, (surah_number, ayah_number, arabic_text, english_translation, transliteration, fingerprint_data, now))
+            """, (surah_number, ayah_number, arabic_text, english_translation, transliteration, urdu_translation, fingerprint_data, now))
 
             conn.commit()
             return cursor.lastrowid
@@ -107,6 +111,7 @@ class DatabaseManager:
                     v['arabic_text'],
                     v.get('english_translation'),
                     v.get('transliteration'),
+                    v.get('urdu_translation'),
                     v.get('fingerprint_data'),
                     now
                 )
@@ -115,12 +120,13 @@ class DatabaseManager:
 
             cursor.executemany("""
                 INSERT INTO verses
-                (surah_number, ayah_number, arabic_text, english_translation, transliteration, fingerprint_data, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (surah_number, ayah_number, arabic_text, english_translation, transliteration, urdu_translation, fingerprint_data, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(surah_number, ayah_number) DO UPDATE SET
                     arabic_text = excluded.arabic_text,
                     english_translation = COALESCE(excluded.english_translation, verses.english_translation),
                     transliteration = COALESCE(excluded.transliteration, verses.transliteration),
+                    urdu_translation = COALESCE(excluded.urdu_translation, verses.urdu_translation),
                     fingerprint_data = COALESCE(excluded.fingerprint_data, verses.fingerprint_data),
                     updated_at = excluded.updated_at
             """, params)
@@ -134,7 +140,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT v.id, v.surah_number, v.ayah_number, v.arabic_text,
-                       v.english_translation, v.transliteration, v.fingerprint_data,
+                       v.english_translation, v.transliteration, v.urdu_translation, v.fingerprint_data,
                        v.created_at, v.updated_at,
                        s.name_arabic, s.name_english, s.revelation_type
                 FROM verses v
@@ -149,7 +155,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT v.id, v.surah_number, v.ayah_number, v.arabic_text, 
-                       v.english_translation, v.fingerprint_data,
+                       v.english_translation, v.urdu_translation, v.fingerprint_data,
                        v.created_at, v.updated_at, v.transliteration,
                        s.name_arabic, s.name_english, s.revelation_type
                 FROM verses v
@@ -223,21 +229,22 @@ class DatabaseManager:
             return cursor.fetchall()
 
     def search_verses(self, query: str, limit: int = 10) -> List[tuple]:
-        """Search verses by Arabic text, English translation, or English transliteration"""
+        """Search verses by Arabic text, English translation, English transliteration, or Urdu translation"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             wildcard = f"%{query}%"
             cursor.execute("""
                 SELECT v.id, v.surah_number, v.ayah_number, v.arabic_text,
-                       v.english_translation, v.transliteration,
+                       v.english_translation, v.transliteration, v.urdu_translation,
                        s.name_arabic, s.name_english, s.revelation_type
                 FROM verses v
                 JOIN surahs s ON v.surah_number = s.number
                 WHERE v.arabic_text LIKE ?
                    OR v.english_translation LIKE ?
                    OR v.transliteration LIKE ?
+                   OR v.urdu_translation LIKE ?
                 LIMIT ?
-            """, (wildcard, wildcard, wildcard, limit))
+            """, (wildcard, wildcard, wildcard, wildcard, limit))
             return cursor.fetchall()
 
 # Global database instance

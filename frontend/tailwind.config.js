@@ -9,6 +9,7 @@ export default {
     extend: {
       fontFamily: {
         'arabic': ['Amiri', 'serif'],
+        'urdu': ['"Noto Nastaliq Urdu"', '"Jameel Noori Nastaleeq"', '"Urdu Typesetting"', 'serif'],
         'sans': ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {

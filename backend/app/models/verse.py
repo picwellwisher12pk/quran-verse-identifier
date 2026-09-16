@@ -8,6 +8,7 @@ class VerseBase(BaseModel):
     arabic_text: str = Field(..., description="Arabic text of the verse")
     english_translation: Optional[str] = Field(None, description="English translation")
     transliteration: Optional[str] = Field(None, description="English phonetic transliteration")
+    urdu_translation: Optional[str] = Field(None, description="Urdu translation")
     surah_name_arabic: Optional[str] = Field(None, description="Arabic name of the surah")
     surah_name_english: Optional[str] = Field(None, description="English name of the surah")
     revelation_type: Optional[str] = Field(None, description="Meccan or Medinan revelation")
@@ -31,6 +32,7 @@ class Verse(VerseBase):
                 "arabic_text": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
                 "english_translation": "In the name of Allah, the Entirely Merciful, the Especially Merciful.",
                 "transliteration": "Bismillaahir Rahmaanir Raheem",
+                "urdu_translation": "شروع الله کا نام لے کر جو بڑا مہربان نہایت رحم والا ہے",
                 "surah_name_arabic": "الفاتحة",
                 "surah_name_english": "Al-Fatihah",
                 "revelation_type": "Meccan",

@@ -20,6 +20,7 @@ const VerseResults = ({ results, onNewSearch }) => {
   const [feedbackSuccess, setFeedbackSuccess] = useState({});
   const [copiedId, setCopiedId] = useState(null);
   const [showTransliteration, setShowTransliteration] = useState(false);
+  const [translationLang, setTranslationLang] = useState('both'); // 'both' | 'urdu' | 'english'
 
   if (!results || !results.matches || results.matches.length === 0) {
     return (
@@ -68,9 +69,10 @@ const VerseResults = ({ results, onNewSearch }) => {
     );
   };
 
-  const handleCopyArabic = (verseId, text) => {
+  const handleCopyText = (key, text) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
-    setCopiedId(verseId);
+    setCopiedId(key);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -97,7 +99,41 @@ const VerseResults = ({ results, onNewSearch }) => {
             {results.matches.length} candidate {results.matches.length === 1 ? 'verse' : 'verses'} found
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center flex-wrap gap-2">
+          {/* Translation View Mode Filter */}
+          <div className="inline-flex items-center p-0.5 bg-slate-100/90 border border-slate-200/80 rounded-full text-xs">
+            <button
+              type="button"
+              onClick={() => setTranslationLang('both')}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer ${
+                translationLang === 'both' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Show all translations"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setTranslationLang('urdu')}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer ${
+                translationLang === 'urdu' ? 'bg-white text-emerald-800 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Show Urdu translation only"
+            >
+              اردو
+            </button>
+            <button
+              type="button"
+              onClick={() => setTranslationLang('english')}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer ${
+                translationLang === 'english' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Show English translation only"
+            >
+              English
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setShowTransliteration(!showTransliteration)}
@@ -206,11 +242,11 @@ const VerseResults = ({ results, onNewSearch }) => {
                   <div className="flex justify-end pb-1">
                     <button
                       type="button"
-                      onClick={() => handleCopyArabic(verse.id, verse.arabic_text)}
+                      onClick={() => handleCopyText(`ar-${verse.id}`, verse.arabic_text)}
                       className="inline-flex items-center space-x-1 text-xs text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                       title="Copy Arabic text"
                     >
-                      {isCopied ? (
+                      {copiedId === `ar-${verse.id}` ? (
                         <>
                           <FiCheck className="w-3.5 h-3.5 text-teal-600" />
                           <span className="text-teal-700 font-medium">Copied</span>
@@ -242,9 +278,49 @@ const VerseResults = ({ results, onNewSearch }) => {
                   </p>
                 )}
 
-                {/* English Translation (Clear vertical separation from Arabic text) */}
-                {verse.english_translation && (
-                  <div className="pt-2 sm:pt-3">
+                {/* Urdu Translation */}
+                {verse.urdu_translation && (translationLang === 'both' || translationLang === 'urdu') && (
+                  <div className="pt-2 sm:pt-3 border-t border-slate-100/90">
+                    <div className="flex items-center justify-between pb-1.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                        اردو ترجمہ
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(`ur-${verse.id}`, verse.urdu_translation)}
+                        className="inline-flex items-center space-x-1 text-xs text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                        title="Copy Urdu translation"
+                      >
+                        {copiedId === `ur-${verse.id}` ? (
+                          <>
+                            <FiCheck className="w-3.5 h-3.5 text-teal-600" />
+                            <span className="text-teal-700 font-medium">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <FiCopy className="w-3.5 h-3.5" />
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p
+                      dir="rtl"
+                      className="font-urdu text-slate-800 text-base sm:text-lg text-right leading-loose select-all"
+                    >
+                      {verse.urdu_translation}
+                    </p>
+                  </div>
+                )}
+
+                {/* English Translation */}
+                {verse.english_translation && (translationLang === 'both' || translationLang === 'english') && (
+                  <div className="pt-2 sm:pt-2.5 border-t border-slate-100/80">
+                    <div className="flex items-center justify-between pb-1">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
+                        English Translation
+                      </span>
+                    </div>
                     <p className="text-slate-700 text-sm sm:text-base leading-relaxed">
                       {verse.english_translation}
                     </p>

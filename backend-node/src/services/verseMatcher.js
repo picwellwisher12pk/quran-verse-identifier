@@ -174,6 +174,7 @@ export class VerseMatcher {
             arabic_text: item.arabic_text,
             english_translation: item.english_translation,
             transliteration: item.transliteration,
+            urdu_translation: item.urdu_translation,
             surah_name_arabic: item.surah_name_arabic,
             surah_name_english: item.surah_name_english,
             revelation_type: item.revelation_type

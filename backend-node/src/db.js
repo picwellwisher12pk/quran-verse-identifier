@@ -92,7 +92,7 @@ export async function getVerse(surahNumber, ayahNumber) {
   const db = await getDb();
   return db.get(`
     SELECT v.id, v.surah_number, v.ayah_number, v.arabic_text,
-           v.english_translation, v.transliteration, v.fingerprint_data,
+           v.english_translation, v.transliteration, v.urdu_translation, v.fingerprint_data,
            v.created_at, v.updated_at,
            s.name_arabic as surah_name_arabic,
            s.name_english as surah_name_english,
@@ -107,7 +107,7 @@ export async function getVersesWithFingerprints() {
   const db = await getDb();
   return db.all(`
     SELECT v.id, v.surah_number, v.ayah_number, v.arabic_text,
-           v.english_translation, v.transliteration, v.fingerprint_data,
+           v.english_translation, v.transliteration, v.urdu_translation, v.fingerprint_data,
            s.name_arabic as surah_name_arabic,
            s.name_english as surah_name_english,
            s.revelation_type
@@ -122,7 +122,7 @@ export async function getAllVersesForMatching() {
   const db = await getDb();
   return db.all(`
     SELECT v.id, v.surah_number, v.ayah_number, v.arabic_text,
-           v.english_translation, v.transliteration, v.fingerprint_data,
+           v.english_translation, v.transliteration, v.urdu_translation, v.fingerprint_data,
            s.name_arabic as surah_name_arabic,
            s.name_english as surah_name_english,
            s.revelation_type
@@ -154,7 +154,7 @@ export async function searchVerses(query, limit = 10) {
   const term = `%${query.trim()}%`;
   return db.all(`
     SELECT v.id, v.surah_number, v.ayah_number, v.arabic_text,
-           v.english_translation, v.transliteration,
+           v.english_translation, v.transliteration, v.urdu_translation,
            s.name_arabic as surah_name_arabic,
            s.name_english as surah_name_english,
            s.revelation_type
@@ -163,6 +163,7 @@ export async function searchVerses(query, limit = 10) {
     WHERE v.arabic_text LIKE ?
        OR v.english_translation LIKE ?
        OR v.transliteration LIKE ?
+       OR v.urdu_translation LIKE ?
     LIMIT ?
-  `, [term, term, term, limit]);
+  `, [term, term, term, term, limit]);
 }
