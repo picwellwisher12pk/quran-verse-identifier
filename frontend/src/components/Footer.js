@@ -21,14 +21,20 @@ const Footer = () => {
   }, []);
 
   return (
-    <footer className="bg-white border-t border-slate-200 py-6 mt-auto">
+    <footer className="bg-white border-t border-slate-200 py-4 mt-auto">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
         <div className="flex items-center space-x-2">
           <span className="font-semibold text-slate-700">Quran Verse Identifier</span>
           <span>•</span>
           <span>6,236 Verses Indexed</span>
-          <span className="hidden sm:inline">•</span>
-          <span className="hidden sm:inline">EveryAyah CDN</span>
+        </div>
+
+        <div className="flex items-center space-x-1.5 flex-wrap justify-center">
+          <span>Made with ❤️ by <strong className="text-slate-800">Amir Hameed</strong></span>
+          <span>•</span>
+          <a href="tel:03224228530" className="hover:text-teal-700 hover:underline">03224228530</a>
+          <span>•</span>
+          <a href="mailto:me@amirhameed.com" className="hover:text-teal-700 hover:underline">me@amirhameed.com</a>
         </div>
 
         <div className="flex items-center space-x-2">

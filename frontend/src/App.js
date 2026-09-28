@@ -1,11 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
+import Footer from './components/Footer';
 import Home from './pages/Home';
 import About from './pages/About';
 import Statistics from './pages/Statistics';
 import Marketing from './pages/Marketing';
 import DebugLogsModal from './components/DebugLogsModal';
+import { Analytics } from '@vercel/analytics/react';
 import './styles/index.css';
 
 function App() {
@@ -21,8 +23,9 @@ function App() {
             <Route path="/statistics" element={<Statistics />} />
           </Routes>
         </main>
-        {/* Footer hidden per user request */}
+        <Footer />
         <DebugLogsModal />
+        <Analytics />
       </div>
     </Router>
   );
