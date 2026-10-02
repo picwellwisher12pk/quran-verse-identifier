@@ -88,6 +88,21 @@ export const useAudioRecorder = (options = {}) => {
   useEffect(() => {
     refreshAudioDevices();
 
+    // If permission was already granted previously, automatically populate device labels
+    if (navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: 'microphone' })
+        .then((permissionStatus) => {
+          if (permissionStatus.state === 'granted') {
+            refreshAudioDevices();
+          }
+          permissionStatus.onchange = () => {
+            refreshAudioDevices();
+          };
+        })
+        .catch(() => {});
+    }
+
     const mediaDev = navigator.mediaDevices;
     if (mediaDev) {
       if (mediaDev.addEventListener) {

@@ -16,7 +16,7 @@ function App() {
     <Router>
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased selection:bg-teal-100 selection:text-teal-900">
         <Header />
-        <main className="flex-grow flex flex-col">
+        <main className="flex-grow flex flex-col min-h-[calc(100vh-6.5rem)] min-h-[calc(100dvh-6.5rem)] sm:min-h-[calc(100vh-7rem)] sm:min-h-[calc(100dvh-7rem)]">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/marketing" element={<Marketing />} />

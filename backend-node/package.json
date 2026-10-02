@@ -1,6 +1,6 @@
 {
   "name": "quran-verse-identifier-backend-node",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
   "description": "Node.js backend for Quran Verse Identifier API",
   "main": "src/index.js",

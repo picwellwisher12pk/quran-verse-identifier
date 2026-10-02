@@ -816,15 +816,20 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
           {/* Fixed Gap */}
           <div className="my-1.5" />
 
-          {/* Slot 3: Device selector & file upload (h-[52px]) */}
-          <div className="w-full h-[52px] flex flex-col items-center justify-center space-y-1 transition-all duration-300 ease-in-out">
-            {reciteMode === 'recorder' && audioDevices.length > 1 && (
-              <div className="inline-flex items-center space-x-1.5 bg-white border border-slate-200/80 rounded-full px-3 py-0.5 shadow-2xs">
-                <FiMic className="w-3 h-3 text-teal-600 shrink-0" />
+          {/* Slot 3: Device selector & file upload */}
+          <div className="w-full min-h-[52px] flex flex-col items-center justify-center space-y-1.5 transition-all duration-300 ease-in-out">
+            {audioDevices.length > 1 && (
+              <div
+                className="inline-flex items-center space-x-1.5 bg-white border border-slate-200/80 rounded-full px-3 py-1 shadow-2xs hover:border-teal-300 transition-colors"
+                title="Select microphone input device"
+              >
+                <FiMic className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                <label htmlFor="mic-device-select" className="sr-only">Select Microphone</label>
                 <select
+                  id="mic-device-select"
                   value={selectedDeviceId}
                   onChange={(e) => setSelectedDeviceId(e.target.value)}
-                  className="text-[11px] font-medium text-slate-700 bg-transparent focus:outline-none cursor-pointer border-none p-0 pr-1 max-w-[180px] truncate"
+                  className="text-[11px] sm:text-xs font-medium text-slate-700 bg-transparent focus:outline-none cursor-pointer border-none p-0 pr-1 max-w-[210px] truncate"
                 >
                   {audioDevices.map((device, idx) => (
                     <option key={device.deviceId || idx} value={device.deviceId}>
