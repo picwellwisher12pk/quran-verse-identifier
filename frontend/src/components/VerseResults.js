@@ -250,8 +250,8 @@ const VerseResults = ({ results, onNewSearch }) => {
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-4">
-      {/* Sleek Minimal Header: No clutter */}
-      <div className="flex items-center justify-between gap-4 px-1 py-1">
+      {/* Sleek Minimal Header: Mobile-first stacked layout */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 py-1">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Matched Verses
@@ -359,13 +359,13 @@ const VerseResults = ({ results, onNewSearch }) => {
               className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all hover:shadow-sm animate-slide-up-fade"
             >
               {/* Card Header: Surah metadata, Revelation Badge & Confidence */}
-              <div className="px-5 py-3.5 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between gap-3">
-                <div className="flex items-center space-x-2.5">
-                  <span className="w-6 h-6 rounded-full bg-teal-600 text-white font-bold text-xs flex items-center justify-center">
+              <div className="px-3.5 sm:px-5 py-3 sm:py-3.5 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
+                  <span className="w-6 h-6 rounded-full bg-teal-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
                     {index + 1}
                   </span>
-                  <div className="flex items-baseline space-x-2">
-                    <h3 className="text-base font-bold text-slate-900">
+                  <div className="flex items-baseline space-x-1.5 sm:space-x-2 flex-wrap">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900">
                       Surah {verse.surah_name_english || verse.surah_number} : {verse.ayah_number}
                     </h3>
                     {verse.surah_name_arabic && (

@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiDownload, FiAlertCircle } from 'react-icons/fi';
-import { apiService } from '../services/api';
 import logger, { LOG_CATEGORIES } from '../utils/logger';
 
 const Header = () => {
   const navigate = useNavigate();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [apiStatus, setApiStatus] = useState('checking'); // 'online' | 'offline' | 'checking'
 
   // PWA install prompt handler
   useEffect(() => {
@@ -26,31 +24,6 @@ const Header = () => {
     });
 
     return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  // Heartbeat check for API online indicator
-  useEffect(() => {
-    let mounted = true;
-    const checkApi = async () => {
-      try {
-        const checkFn = apiService.healthCheck || apiService.getHealth;
-        if (checkFn) {
-          await checkFn.call(apiService);
-        } else {
-          // Fallback direct fetch to /api/health
-          await fetch('/api/health');
-        }
-        if (mounted) setApiStatus('online');
-      } catch (e) {
-        if (mounted) setApiStatus('offline');
-      }
-    };
-    checkApi();
-    const interval = setInterval(checkApi, 30000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
   }, []);
 
   const handleInstallClick = async () => {
@@ -125,31 +98,6 @@ const Header = () => {
               <FiAlertCircle className="w-3.5 h-3.5 text-rose-500" />
               <span className="hidden sm:inline">Feedback</span>
             </button>
-
-            {/* API Status on Top Right */}
-            <div
-              className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200/70 px-2.5 py-1 rounded-full text-xs font-medium text-slate-600 shadow-2xs"
-              title={
-                apiStatus === 'online'
-                  ? 'Backend API Online'
-                  : apiStatus === 'offline'
-                  ? 'Backend API Offline'
-                  : 'Connecting to API...'
-              }
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  apiStatus === 'online'
-                    ? 'bg-emerald-500 animate-pulse'
-                    : apiStatus === 'offline'
-                    ? 'bg-rose-500'
-                    : 'bg-amber-400 animate-ping'
-                }`}
-              />
-              <span className="text-[11px] font-semibold text-slate-700 capitalize">
-                {apiStatus === 'online' ? 'Online' : apiStatus === 'offline' ? 'Offline' : 'Connecting'}
-              </span>
-            </div>
           </div>
         </div>
       </div>

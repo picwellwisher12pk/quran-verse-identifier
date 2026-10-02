@@ -777,15 +777,15 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
           </div>
 
           {/* Fixed Gap */}
-          <div className="hidden sm:block my-1.5" />
+          <div className="my-1.5" />
 
-          {/* Slot 2: Mode Selector Tabs (Hidden on mobile, visible on desktop) */}
-          <div className="hidden sm:flex w-full min-h-[76px] flex-col items-center justify-center space-y-1.5 py-1 transition-all duration-300 ease-in-out">
-            <div className="inline-flex p-1 bg-slate-100 rounded-full border border-slate-200 shadow-2xs">
+          {/* Slot 2: Mode Selector Tabs (Mobile & Desktop) */}
+          <div className="flex w-full min-h-[52px] sm:min-h-[76px] flex-col items-center justify-center space-y-1.5 py-1 transition-all duration-300 ease-in-out">
+            <div className="inline-flex p-1 bg-slate-100 rounded-full border border-slate-200 shadow-2xs max-w-full">
               <button
                 type="button"
                 onClick={() => setReciteMode('stt')}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold transition-all cursor-pointer ${
                   reciteMode === 'stt'
                     ? 'bg-teal-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -796,7 +796,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
               <button
                 type="button"
                 onClick={() => setReciteMode('recorder')}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold transition-all cursor-pointer ${
                   reciteMode === 'recorder'
                     ? 'bg-teal-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -806,7 +806,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
               </button>
             </div>
 
-            <p className="text-[11px] text-slate-500 max-w-xs leading-tight">
+            <p className="text-[11px] text-slate-500 max-w-xs leading-tight hidden sm:block">
               {reciteMode === 'stt'
                 ? 'Transcribes your Arabic recitation live without audio conflict.'
                 : 'Records audio file with relaxed mic constraints and sends to server.'}
