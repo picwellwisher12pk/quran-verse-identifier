@@ -7,6 +7,14 @@ import { apiService } from '../services/api';
 import logger, { LOG_CATEGORIES } from '../utils/logger';
 import { FiMic, FiSearch, FiSquare, FiUploadCloud } from 'react-icons/fi';
 
+const isMobileDevice = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  return (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints && navigator.maxTouchPoints > 1)
+  );
+};
+
 const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploadError }) => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -14,7 +22,8 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
   const [liveTranscript, setLiveTranscript] = useState('');
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [reciteMode, setReciteMode] = useState('stt'); // 'stt' (Option 1: Live STT) | 'recorder' (Option 2: Audio File)
+  // Default to 'recorder' on mobile to avoid OS mic lockouts, allowing clean single-stream audio capture
+  const [reciteMode, setReciteMode] = useState(() => (isMobileDevice() ? 'recorder' : 'stt'));
   const [isSTTListening, setIsSTTListening] = useState(false);
 
   // Animation unwrap state
@@ -252,7 +261,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     }
   }, []);
 
-  // Click handler: Triggers smooth 400ms unwrap animation, then starts recording
+  // Click handler: Triggers smooth unwrap animation, then starts recording
   const handleStartRecording = useCallback(async () => {
     setSelectedFile(null);
     setCurrentAudioUrl('');
@@ -262,32 +271,36 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
 
     setIsUnwrapping(true);
 
-    // Start Speech Recognition across both modes so Arabic text is always transcribed
-    shouldRecognizeRef.current = true;
-    setIsSTTListening(true);
-    startSTT();
+    const isMobile = isMobileDevice();
+    const effectiveMode = isMobile ? 'recorder' : reciteMode;
 
-    if (reciteMode === 'stt') {
-      // Option 1: Live STT (exclusive speech recognition, lightweight)
+    if (effectiveMode === 'stt') {
+      // Desktop-only Option 1: Live STT (exclusive speech recognition, lightweight)
+      shouldRecognizeRef.current = true;
+      setIsSTTListening(true);
+      startSTT();
       setTimeout(() => {
         setIsUnwrapping(false);
       }, 350);
     } else {
-      // Option 2: Record Audio (captures audio file via MediaRecorder + parallel STT transcription)
+      // Option 2 (and Mobile Default): Single-stream audio recording via MediaRecorder
+      // CRITICAL: We strictly DO NOT start SpeechRecognition here to prevent mobile OS microphone lockouts!
+      shouldRecognizeRef.current = false;
+      setIsSTTListening(false);
       setTimeout(async () => {
         try {
           await startRecording();
         } catch (err) {
-          console.error('Recording start failed:', err);
+          logger.error(LOG_CATEGORIES.RECORDER, 'Recording start failed:', err);
         } finally {
           setIsUnwrapping(false);
         }
-      }, 420);
+      }, 350);
     }
   }, [reciteMode, startRecording, startSTT]);
 
   // Stop recording
-  const handleStopRecording = useCallback(() => {
+  const handleStopRecording = useCallback(async () => {
     setIsSTTListening(false);
     shouldRecognizeRef.current = false;
     if (restartTimerRef.current) {
@@ -316,7 +329,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
     }
 
     if (isRecording) {
-      stopRecording();
+      await stopRecording();
     }
     setIsUnwrapping(false);
   }, [isRecording, stopRecording]);
@@ -564,7 +577,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />
               </span>
               <span className="text-xs sm:text-sm font-semibold text-red-600 tracking-wide uppercase">
-                {isUnwrapping ? 'Starting...' : reciteMode === 'stt' ? 'Listening (Live STT)' : 'Recording Audio'}
+                {isUnwrapping ? 'Starting...' : isRecording ? 'Recording Audio' : 'Listening (Live STT)'}
               </span>
               <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
                 {formatTime(recordingSeconds)}
@@ -577,7 +590,13 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
                 <div className="h-11 flex items-center justify-center">
                   <div className="hollow-record-btn animate-morph-line" />
                 </div>
-              ) : reciteMode === 'stt' ? (
+              ) : isRecording ? (
+                <Visualizer
+                  analyser={analyserRef.current}
+                  isRecording={isRecording}
+                  height={48}
+                />
+              ) : (
                 <div className="flex flex-col items-center justify-center space-y-1 w-full">
                   <div className="flex items-center justify-center space-x-1 sm:space-x-1.5 h-10 w-full max-w-xs px-2">
                     {[14, 22, 34, 44, 52, 60, 50, 38, 42, 52, 58, 48, 38, 28, 20, 14].map((maxH, idx) => (
@@ -596,12 +615,6 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
                     {liveTranscript ? 'Recitation detected — keep reciting...' : 'Listening... Recite Arabic verses clearly'}
                   </span>
                 </div>
-              ) : (
-                <Visualizer
-                  analyser={analyserRef.current}
-                  isRecording={isRecording}
-                  height={48}
-                />
               )}
             </div>
           </div>
@@ -609,7 +622,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
           {/* Fixed Gap */}
           <div className="my-1.5" />
 
-          {/* Slot 2: Real-Time Arabic Text (Smooth expandable height, zero diacritic clipping) */}
+          {/* Slot 2: Real-Time Arabic Text or Recording Indicator */}
           <div className="w-full min-h-[76px] flex flex-col items-center justify-center px-4 py-2 transition-all duration-300 ease-in-out overflow-visible">
             {liveTranscript ? (
               <p
@@ -619,6 +632,15 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
               >
                 {liveTranscript}
               </p>
+            ) : isRecording ? (
+              <div className="flex flex-col items-center justify-center space-y-1 py-1">
+                <span className="text-xs sm:text-sm font-semibold text-teal-800">
+                  Capturing your recitation at studio quality...
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Tap 'Stop & Check' when finished reciting
+                </span>
+              </div>
             ) : (
               <div className="flex items-center justify-center space-x-1.5 py-2">
                 <span className="relative flex h-2 w-2">

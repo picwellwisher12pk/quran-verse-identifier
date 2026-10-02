@@ -212,6 +212,21 @@ export const apiService = {
     }
   },
 
+  async submitGroundTruth({ savedFile, surahNumber, ayahNumber, pace = 'normal', notes = '' }) {
+    try {
+      const response = await api.post('/telemetry/ground-truth', {
+        savedFile,
+        surahNumber,
+        ayahNumber,
+        pace,
+        notes,
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  },
+
   async getHealth() {
     try {
       const response = await api.get('/health');

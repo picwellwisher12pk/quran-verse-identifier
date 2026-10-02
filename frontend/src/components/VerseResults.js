@@ -23,10 +23,41 @@ const VerseResults = ({ results, onNewSearch }) => {
   const [showTransliteration, setShowTransliteration] = useState(false);
   const [translationLang, setTranslationLang] = useState('both'); // 'both' | 'urdu' | 'english'
 
+  // Ground-truth training data collection for fast/normal recitation analysis
+  const [groundTruthSurah, setGroundTruthSurah] = useState('');
+  const [groundTruthAyah, setGroundTruthAyah] = useState('');
+  const [groundTruthPace, setGroundTruthPace] = useState('fast');
+  const [groundTruthSubmitting, setGroundTruthSubmitting] = useState(false);
+  const [groundTruthSubmitted, setGroundTruthSubmitted] = useState(false);
+  const [groundTruthError, setGroundTruthError] = useState(null);
+
+  const handleGroundTruthSubmit = async (e) => {
+    e?.preventDefault();
+    if (!groundTruthSurah.trim()) {
+      setGroundTruthError('Please specify the Surah number or name you were reciting');
+      return;
+    }
+    setGroundTruthSubmitting(true);
+    setGroundTruthError(null);
+    try {
+      await apiService.submitGroundTruth({
+        savedFile: results?.file_info?.saved_file,
+        surahNumber: groundTruthSurah.trim(),
+        ayahNumber: groundTruthAyah.trim(),
+        pace: groundTruthPace,
+      });
+      setGroundTruthSubmitted(true);
+    } catch (err) {
+      setGroundTruthError('Could not submit feedback. Please check your connection.');
+    } finally {
+      setGroundTruthSubmitting(false);
+    }
+  };
+
   if (!results || !results.matches || results.matches.length === 0) {
     return (
-      <div className="w-full max-w-2xl mx-auto p-6 text-center">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+      <div className="w-full max-w-2xl mx-auto p-4 sm:p-6 text-center space-y-4">
+        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-200">
           <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
             🔍
           </div>
@@ -34,8 +65,97 @@ const VerseResults = ({ results, onNewSearch }) => {
             No matching verses found
           </h3>
           <p className="text-gray-600 mb-6 max-w-md mx-auto leading-relaxed text-sm">
-            We couldn't identify a matching verse from your recitation. Try reciting closer to the microphone or with clearer tajweed.
+            We couldn't identify a matching verse from your recitation. If you were reciting at a normal or fast pace, help us improve recognition!
           </p>
+
+          {/* Ground Truth Submission Form */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 sm:p-5 text-left mb-6">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-base">🎙️</span>
+              <h4 className="text-sm font-semibold text-slate-800">
+                Teach the Model: What verse were you reciting?
+              </h4>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Your audio recording has been safely cached. Tagging your intended verse helps us analyze your audio and train fast-recitation detection for mobile users.
+            </p>
+
+            {groundTruthSubmitted ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-medium text-emerald-800 flex items-center space-x-2">
+                <FiCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Thank you! Your recitation recording has been tagged and queued for acoustic analysis.</span>
+              </div>
+            ) : (
+              <form onSubmit={handleGroundTruthSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Surah Number or Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1 or Al-Fatiha"
+                      value={groundTruthSurah}
+                      onChange={(e) => setGroundTruthSurah(e.target.value)}
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Ayah Number (optional)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 1"
+                      value={groundTruthAyah}
+                      onChange={(e) => setGroundTruthAyah(e.target.value)}
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Your Recitation Pace
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    {[
+                      { key: 'fast', label: '⚡ Fast (Hadr)' },
+                      { key: 'normal', label: '⏱️ Normal' },
+                      { key: 'tartil', label: '📖 Measured (Tartil)' },
+                    ].map((p) => (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setGroundTruthPace(p.key)}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                          groundTruthPace === p.key
+                            ? 'bg-teal-600 text-white'
+                            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {groundTruthError && (
+                  <p className="text-xs text-red-600 font-medium">{groundTruthError}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={groundTruthSubmitting}
+                  className="w-full sm:w-auto px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg text-xs transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {groundTruthSubmitting ? 'Submitting...' : 'Submit Recitation for Analysis'}
+                </button>
+              </form>
+            )}
+          </div>
+
           <button
             onClick={onNewSearch}
             className="btn btn-primary cursor-pointer"

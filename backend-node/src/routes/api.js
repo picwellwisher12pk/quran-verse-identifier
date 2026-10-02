@@ -49,6 +49,7 @@ export async function apiRoutes(fastify, options) {
     let fileName = "transcript-query";
     let fileSize = 0;
     let contentType = "text/plain";
+    let savedFileName = null;
 
     try {
       if (req.isMultipart()) {
@@ -61,15 +62,19 @@ export async function apiRoutes(fastify, options) {
               const buffer = await part.toBuffer();
               fileSize = buffer.length;
 
-              // Save copy for audio inspection & debugging
+              // Save copy for audio inspection & debugging (supporting Vercel /tmp writable sandbox)
               try {
-                const inspectionDir = path.resolve(process.cwd(), "audio_inspections");
+                const inspectionDir = process.env.VERCEL
+                  ? path.resolve("/tmp", "audio_inspections")
+                  : path.resolve(process.cwd(), "audio_inspections");
+
                 if (!fs.existsSync(inspectionDir)) {
                   fs.mkdirSync(inspectionDir, { recursive: true });
                 }
                 const safeTime = new Date().toISOString().replace(/[:.]/g, "-");
-                const ext = path.extname(fileName) || (contentType.includes("mp4") ? ".mp4" : contentType.includes("webm") ? ".webm" : ".wav");
+                const ext = path.extname(fileName) || (contentType.includes("mp4") || contentType.includes("aac") ? ".mp4" : contentType.includes("webm") ? ".webm" : ".wav");
                 const savedFile = `rec_${safeTime}${ext}`;
+                savedFileName = savedFile;
                 const savedPath = path.join(inspectionDir, savedFile);
                 fs.writeFileSync(savedPath, buffer);
 
@@ -167,7 +172,8 @@ export async function apiRoutes(fastify, options) {
         file_info: {
           file_name: fileName,
           file_size: fileSize,
-          content_type: contentType
+          content_type: contentType,
+          saved_file: savedFileName
         },
         processing_time: processingTime,
         message: sortedMatches.length > 0
@@ -184,9 +190,70 @@ export async function apiRoutes(fastify, options) {
         file_info: {
           file_name: fileName,
           file_size: fileSize,
-          content_type: contentType
+          content_type: contentType,
+          saved_file: savedFileName
         },
         processing_time: processingTime
+      };
+    }
+  });
+
+  /**
+   * POST /api/telemetry/ground-truth
+   * Gathers user-submitted ground truth labels (Surah, Ayah, pace) for fast/normal recitation analysis
+   */
+  fastify.post("/telemetry/ground-truth", async (req, reply) => {
+    const { savedFile, surahNumber, ayahNumber, pace, notes } = req.body || {};
+    try {
+      const inspectionDir = process.env.VERCEL
+        ? path.resolve("/tmp", "audio_inspections")
+        : path.resolve(process.cwd(), "audio_inspections");
+
+      if (!fs.existsSync(inspectionDir)) {
+        fs.mkdirSync(inspectionDir, { recursive: true });
+      }
+
+      const groundTruthEntry = {
+        timestamp: new Date().toISOString(),
+        savedFile: savedFile || null,
+        surahNumber: Number(surahNumber) || null,
+        ayahNumber: Number(ayahNumber) || null,
+        pace: pace || "normal", // "normal" | "fast" | "tartil" | "hadr"
+        notes: notes || "",
+        userAgent: req.headers["user-agent"] || "unknown",
+        clientIP: req.ip || req.socket?.remoteAddress,
+      };
+
+      // If a savedFile reference exists, attach ground truth to its metadata JSON
+      if (savedFile) {
+        const baseName = path.parse(savedFile).name;
+        const metaPath = path.join(inspectionDir, `${baseName}_meta.json`);
+        if (fs.existsSync(metaPath)) {
+          try {
+            const existing = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+            existing.groundTruth = groundTruthEntry;
+            fs.writeFileSync(metaPath, JSON.stringify(existing, null, 2));
+          } catch (e) {
+            console.warn("[GroundTruth] Could not update existing meta file:", e.message);
+          }
+        }
+      }
+
+      // Append to the dataset index
+      const datasetPath = path.join(inspectionDir, "ground_truth_dataset.jsonl");
+      fs.appendFileSync(datasetPath, JSON.stringify(groundTruthEntry) + "\n");
+
+      console.log(`[GroundTruth] Logged user label: Surah ${surahNumber}:${ayahNumber}, pace=${pace}, file=${savedFile || "none"}`);
+      return {
+        success: true,
+        message: "Recitation ground-truth data saved for acoustic analysis."
+      };
+    } catch (err) {
+      console.error("[GroundTruth ERROR]", err);
+      reply.code(500);
+      return {
+        success: false,
+        detail: "Failed to record ground truth label."
       };
     }
   });

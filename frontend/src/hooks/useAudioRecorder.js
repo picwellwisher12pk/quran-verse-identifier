@@ -221,15 +221,22 @@ export const useAudioRecorder = (options = {}) => {
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
       
-      // Determine best supported MIME type
+      // Determine best supported MIME type across iOS Safari, Android Chrome, and Desktop
       let mimeType = '';
+      const candidateTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
+        'audio/aac',
+        'audio/ogg;codecs=opus',
+      ];
       if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
-        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-          mimeType = 'audio/webm;codecs=opus';
-        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          mimeType = 'audio/webm';
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          mimeType = 'audio/mp4';
+        for (const candidate of candidateTypes) {
+          if (MediaRecorder.isTypeSupported(candidate)) {
+            mimeType = candidate;
+            break;
+          }
         }
       }
 
@@ -260,7 +267,8 @@ export const useAudioRecorder = (options = {}) => {
       };
       
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(50);
+      // Timeslice of 200ms ensures gentle event processing on mobile while buffering cleanly
+      mediaRecorder.start(200);
       setIsRecording(true);
       logger.info(LOG_CATEGORIES.RECORDER, 'MediaRecorder recording started successfully');
       
@@ -318,7 +326,7 @@ export const useAudioRecorder = (options = {}) => {
       });
       
       const url = URL.createObjectURL(blob);
-      const ext = blob.type.includes('mp4') ? 'mp4' : blob.type.includes('ogg') ? 'ogg' : 'webm';
+      const ext = blob.type.includes('mp4') || blob.type.includes('aac') ? 'mp4' : blob.type.includes('ogg') ? 'ogg' : 'webm';
       const file = new File([blob], `recording_${Date.now()}.${ext}`, {
         type: blob.type || 'audio/webm',
         lastModified: Date.now(),
