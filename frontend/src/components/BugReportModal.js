@@ -138,7 +138,12 @@ const BugReportModal = () => {
               <FiAlertCircle className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Report a Bug / Feedback</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">Report a Bug / Feedback</h3>
+                <span className="font-urdu text-xs font-semibold text-rose-700" dir="rtl">
+                  (رائے یا خرابی کی اطلاع)
+                </span>
+              </div>
               <p className="text-xs text-slate-500">Quran Verse Identifier Studio</p>
             </div>
           </div>
@@ -162,12 +167,15 @@ const BugReportModal = () => {
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
                 Thank you! Your feedback and diagnostics have been logged to help improve verse matching and app stability.
               </p>
+              <p className="font-urdu text-xs text-emerald-800 text-center" dir="rtl">
+                جزاک اللہ! آپ کی رائے اور معلومات موصول ہو چکی ہیں۔
+              </p>
               <button
                 type="button"
                 onClick={handleClose}
-                className="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-xs"
+                className="mt-4 px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-xs"
               >
-                Close
+                Close (بند کریں)
               </button>
             </div>
           ) : (
@@ -180,26 +188,32 @@ const BugReportModal = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Issue Category
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Issue Category
+                    </label>
+                    <span className="font-urdu text-[11px] text-slate-500" dir="rtl">مسئلے کی نوعیت</span>
+                  </div>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800 outline-none focus:ring-2 focus:ring-teal-500"
                   >
-                    <option value="bug">Bug / Error</option>
-                    <option value="audio">Audio / Mic Recording</option>
-                    <option value="verse-match">Incorrect Verse Match</option>
-                    <option value="performance">Slow Response</option>
-                    <option value="feature">Feature Request</option>
+                    <option value="bug">Bug / Error (تکنیکی خرابی)</option>
+                    <option value="audio">Audio / Mic Recording (مائیک و آڈیو)</option>
+                    <option value="verse-match">Incorrect Verse Match (غلط آیت شناخت)</option>
+                    <option value="performance">Slow Response (سست رفتار)</option>
+                    <option value="feature">Feature Request (نئی تجویز)</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Email (Optional)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Email (Optional)
+                    </label>
+                    <span className="font-urdu text-[11px] text-slate-500" dir="rtl">ای میل (اختیاری)</span>
+                  </div>
                   <input
                     type="email"
                     value={email}
@@ -211,29 +225,35 @@ const BugReportModal = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Subject *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Subject *
+                  </label>
+                  <span className="font-urdu text-[11px] text-slate-500" dir="rtl">عنوان *</span>
+                </div>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Audio upload stalls on 48kHz WAV files"
+                  placeholder="e.g., Audio upload stalls on 48kHz WAV / تیز تلاوت کی شناخت میں مسئلہ"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  What happened? Steps to reproduce *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    What happened? Steps to reproduce *
+                  </label>
+                  <span className="font-urdu text-[11px] text-slate-500" dir="rtl">تفصیل بیان فرمائیں *</span>
+                </div>
                 <textarea
                   required
                   rows={4}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe what occurred, any error messages shown, and audio recitations tested..."
+                  placeholder="Describe what occurred, any error messages shown, and audio recitations tested... / مسئلہ یا تلاوت کے بارے میں تفصیل لکھیں..."
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-teal-500 resize-none"
                 />
               </div>
@@ -250,7 +270,7 @@ const BugReportModal = () => {
                 </label>
                 <span className="text-[10px] text-slate-400 font-mono flex items-center space-x-1">
                   <FiCpu className="w-3 h-3" />
-                  <span>v1.1.0</span>
+                  <span>v1.2.0</span>
                 </span>
               </div>
 
@@ -263,15 +283,17 @@ const BugReportModal = () => {
                 >
                   <FiCopy className="w-3.5 h-3.5" />
                   <span>{copied ? 'Copied Markdown!' : 'Copy Report'}</span>
+                  <span className="font-urdu text-[11px] opacity-80" dir="rtl">(کاپی کریں)</span>
                 </button>
 
                 <div className="flex items-center space-x-2">
                   <button
                     type="button"
                     onClick={handleClose}
-                    className="px-3.5 py-2 rounded-xl text-slate-500 hover:text-slate-800 text-xs font-medium"
+                    className="px-3 py-2 rounded-xl text-slate-500 hover:text-slate-800 text-xs font-medium inline-flex items-center gap-1"
                   >
-                    Cancel
+                    <span>Cancel</span>
+                    <span className="font-urdu text-[10px]" dir="rtl">(منسوخ)</span>
                   </button>
 
                   <button
@@ -281,6 +303,7 @@ const BugReportModal = () => {
                   >
                     <FiSend className="w-3.5 h-3.5" />
                     <span>{submitting ? 'Sending...' : 'Submit Report'}</span>
+                    <span className="font-urdu text-[11px] opacity-90" dir="rtl">(بھیجیں)</span>
                   </button>
                 </div>
               </div>

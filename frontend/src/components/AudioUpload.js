@@ -733,19 +733,21 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
               type="button"
               onClick={handleAudioUpload}
               disabled={uploading}
-              className="inline-flex items-center space-x-2 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-semibold py-2.5 px-7 rounded-full transition-all shadow-sm text-sm cursor-pointer"
+              className="inline-flex items-center space-x-2 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-semibold py-2.5 px-6 rounded-full transition-all shadow-sm text-sm cursor-pointer"
             >
               <FiSearch className="w-4 h-4" />
-              <span>Identify Verse</span>
+              <span>{uploading ? 'Identifying...' : 'Identify Verse'}</span>
+              <span className="font-urdu text-xs opacity-90" dir="rtl">(آیت تلاش کریں)</span>
             </button>
 
             <button
               type="button"
               onClick={handleStartRecording}
               disabled={uploading}
-              className="text-slate-500 hover:text-slate-800 text-xs sm:text-sm font-medium py-2 px-3 transition-colors cursor-pointer"
+              className="text-slate-500 hover:text-slate-800 text-xs sm:text-sm font-medium py-2 px-3 transition-colors cursor-pointer inline-flex items-center gap-1"
             >
-              Recite Again
+              <span>Recite Again</span>
+              <span className="font-urdu text-[11px] opacity-80" dir="rtl">(دوبارہ پڑھیں)</span>
             </button>
           </div>
         </div>
@@ -755,7 +757,7 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
         /* ============================================================ */
         <div className="w-full max-w-md mx-auto flex flex-col items-center text-center py-2 transition-all duration-300 ease-in-out animate-phase-in">
           {/* Slot 1: Main Record Button (min-h-[120px]) */}
-          <div className="w-full min-h-[120px] flex items-center justify-center transition-all duration-300 ease-in-out">
+          <div className="w-full min-h-[120px] flex flex-col items-center justify-center transition-all duration-300 ease-in-out">
             <button
               type="button"
               onClick={handleStartRecording}
@@ -764,6 +766,14 @@ const AudioUpload = ({ onUploadStart, onUploadProgress, onUploadSuccess, onUploa
             >
               <FiMic className="w-10 h-10 sm:w-11 sm:h-11 text-teal-600" />
             </button>
+            <div className="flex flex-col items-center mt-2.5 space-y-0.5">
+              <span className="text-xs font-semibold text-slate-700">
+                Tap mic to begin recitation
+              </span>
+              <span className="font-urdu text-[11px] text-teal-800 font-medium" dir="rtl">
+                تلاوت شروع کرنے کے لیے مائیک دبائیں
+              </span>
+            </div>
           </div>
 
           {/* Fixed Gap */}

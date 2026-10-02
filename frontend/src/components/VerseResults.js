@@ -70,31 +70,52 @@ const VerseResults = ({ results, onNewSearch }) => {
 
           {/* Ground Truth Submission Form */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 sm:p-5 text-left mb-6">
-            <div className="flex items-center space-x-2 mb-2">
-              <span className="text-base">🎙️</span>
-              <h4 className="text-sm font-semibold text-slate-800">
-                Teach the Model: What verse were you reciting?
-              </h4>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-base">🎙️</span>
+                <h4 className="text-sm font-semibold text-slate-800">
+                  Teach the Model: What verse were you reciting?
+                </h4>
+              </div>
+              <span className="font-urdu text-xs font-semibold text-teal-800 text-right" dir="rtl">
+                ماڈل کو بتائیں: آپ کون سی آیت تلاوت فرما رہے تھے؟
+              </span>
             </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Your audio recording has been safely cached. Tagging your intended verse helps us analyze your audio and train fast-recitation detection for mobile users.
-            </p>
+
+            <div className="space-y-1 mb-4">
+              <p className="text-xs text-slate-500">
+                Your audio recording has been safely cached. Tagging your intended verse helps us analyze your audio and train fast-recitation detection for mobile users.
+              </p>
+              <p className="font-urdu text-xs text-slate-600 leading-relaxed text-right" dir="rtl">
+                آپ کی تلاوت کی ریکارڈنگ محفوظ ہے۔ سورت اور آیت کا اندراج کرنے سے ہمیں تیز یا عام رفتار تلاوت کی درست شناخت بنانے میں مدد ملے گی۔
+              </p>
+            </div>
 
             {groundTruthSubmitted ? (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-medium text-emerald-800 flex items-center space-x-2">
-                <FiCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Thank you! Your recitation recording has been tagged and queued for acoustic analysis.</span>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-medium text-emerald-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                <div className="flex items-center space-x-2">
+                  <FiCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Thank you! Your recitation recording has been tagged for acoustic analysis.</span>
+                </div>
+                <span className="font-urdu text-xs text-emerald-900 text-right" dir="rtl">
+                  جزاک اللہ! آپ کی تلاوت صوتی تجزیے کے لیے کامیابی سے محفوظ ہو گئی۔
+                </span>
               </div>
             ) : (
-              <form onSubmit={handleGroundTruthSubmit} className="space-y-3">
+              <form onSubmit={handleGroundTruthSubmit} className="space-y-3.5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Surah Number or Name *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-slate-700">
+                        Surah Number or Name *
+                      </label>
+                      <span className="font-urdu text-[11px] font-medium text-slate-600" dir="rtl">
+                        سورت کا نام یا نمبر *
+                      </span>
+                    </div>
                     <input
                       type="text"
-                      placeholder="e.g. 1 or Al-Fatiha"
+                      placeholder="e.g. 1 or Al-Fatiha / مثلاً 1 یا الفاتحہ"
                       value={groundTruthSurah}
                       onChange={(e) => setGroundTruthSurah(e.target.value)}
                       className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -102,12 +123,17 @@ const VerseResults = ({ results, onNewSearch }) => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Ayah Number (optional)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-slate-700">
+                        Ayah Number (optional)
+                      </label>
+                      <span className="font-urdu text-[11px] font-medium text-slate-600" dir="rtl">
+                        آیت نمبر (اختیاری)
+                      </span>
+                    </div>
                     <input
                       type="number"
-                      placeholder="e.g. 1"
+                      placeholder="e.g. 1 / مثلاً 1"
                       value={groundTruthAyah}
                       onChange={(e) => setGroundTruthAyah(e.target.value)}
                       className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -116,26 +142,32 @@ const VerseResults = ({ results, onNewSearch }) => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Your Recitation Pace
-                  </label>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-semibold text-slate-700">
+                      Your Recitation Pace
+                    </label>
+                    <span className="font-urdu text-[11px] font-medium text-slate-600" dir="rtl">
+                      تلاوت کی رفتار
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
                     {[
-                      { key: 'fast', label: '⚡ Fast (Hadr)' },
-                      { key: 'normal', label: '⏱️ Normal' },
-                      { key: 'tartil', label: '📖 Measured (Tartil)' },
+                      { key: 'fast', label: '⚡ Fast (Hadr)', urdu: 'تیز رفتار (حدر)' },
+                      { key: 'normal', label: '⏱️ Normal', urdu: 'عام رفتار' },
+                      { key: 'tartil', label: '📖 Tartil', urdu: 'ترتیل (ٹھہر کر)' },
                     ].map((p) => (
                       <button
                         key={p.key}
                         type="button"
                         onClick={() => setGroundTruthPace(p.key)}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
                           groundTruthPace === p.key
-                            ? 'bg-teal-600 text-white'
+                            ? 'bg-teal-600 text-white shadow-xs'
                             : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
                         }`}
                       >
-                        {p.label}
+                        <span>{p.label}</span>
+                        <span className="font-urdu text-[10px] opacity-90" dir="rtl">({p.urdu})</span>
                       </button>
                     ))}
                   </div>
@@ -145,22 +177,26 @@ const VerseResults = ({ results, onNewSearch }) => {
                   <p className="text-xs text-red-600 font-medium">{groundTruthError}</p>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={groundTruthSubmitting}
-                  className="w-full sm:w-auto px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg text-xs transition-colors shadow-xs cursor-pointer disabled:opacity-50"
-                >
-                  {groundTruthSubmitting ? 'Submitting...' : 'Submit Recitation for Analysis'}
-                </button>
+                <div className="pt-1">
+                  <button
+                    type="submit"
+                    disabled={groundTruthSubmitting}
+                    className="w-full sm:w-auto px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg text-xs transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <span>{groundTruthSubmitting ? 'Submitting...' : 'Submit Recitation for Analysis'}</span>
+                    <span className="font-urdu text-[11px]" dir="rtl">(تلاوت برائے تجزیہ بھیجیں)</span>
+                  </button>
+                </div>
               </form>
             )}
           </div>
 
           <button
             onClick={onNewSearch}
-            className="btn btn-primary cursor-pointer"
+            className="btn btn-primary cursor-pointer inline-flex items-center gap-2"
           >
-            Try Another Recitation
+            <span>Try Another Recitation</span>
+            <span className="font-urdu text-xs opacity-90" dir="rtl">(دوبارہ تلاوت فرمائیں)</span>
           </button>
         </div>
       </div>
