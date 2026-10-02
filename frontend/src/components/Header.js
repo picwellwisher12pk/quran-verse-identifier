@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiDownload } from 'react-icons/fi';
+import { FiDownload, FiAlertCircle } from 'react-icons/fi';
 import { apiService } from '../services/api';
 import logger, { LOG_CATEGORIES } from '../utils/logger';
 
@@ -114,6 +114,17 @@ const Header = () => {
                 <span className="hidden sm:inline">Install App</span>
               </button>
             )}
+
+            {/* Feedback / Bug Report Button */}
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-bug-report-modal'))}
+              className="inline-flex items-center space-x-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer"
+              title="Report a bug or give feedback (Ctrl+Shift+B)"
+            >
+              <FiAlertCircle className="w-3.5 h-3.5 text-rose-500" />
+              <span className="hidden sm:inline">Feedback</span>
+            </button>
 
             {/* API Status on Top Right */}
             <div

@@ -18,6 +18,7 @@ const toArabicDigits = (num) => {
 const VerseResults = ({ results, onNewSearch }) => {
   const [activeFeedbackId, setActiveFeedbackId] = useState(null);
   const [feedbackSuccess, setFeedbackSuccess] = useState({});
+  const [feedbackError, setFeedbackError] = useState({});
   const [copiedId, setCopiedId] = useState(null);
   const [showTransliteration, setShowTransliteration] = useState(false);
   const [translationLang, setTranslationLang] = useState('both'); // 'both' | 'urdu' | 'english'
@@ -77,13 +78,17 @@ const VerseResults = ({ results, onNewSearch }) => {
   };
 
   const handleFeedbackSubmit = async (verseId, wasCorrect, comment, confidence) => {
+    setFeedbackError((prev) => ({ ...prev, [verseId]: null }));
     try {
       await apiService.submitFeedback(verseId, wasCorrect, confidence, comment);
       setFeedbackSuccess((prev) => ({ ...prev, [verseId]: true }));
       setActiveFeedbackId(null);
     } catch (err) {
       console.error('Error submitting feedback:', err);
-      alert('Failed to submit feedback. Please try again.');
+      setFeedbackError((prev) => ({
+        ...prev,
+        [verseId]: 'Failed to submit feedback. Please try again.',
+      }));
     }
   };
 
@@ -336,6 +341,18 @@ const VerseResults = ({ results, onNewSearch }) => {
                 </div>
 
                 {/* Feedback Section */}
+                {feedbackError[verse.id] && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center justify-between">
+                    <span>{feedbackError[verse.id]}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFeedbackError((prev) => ({ ...prev, [verse.id]: null }))}
+                      className="text-rose-500 font-bold ml-2 text-sm"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 {isFeedbackSent ? (
                   <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center">
                     <span className="mr-1.5">✓</span> Thank you! Your feedback has been recorded.

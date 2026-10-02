@@ -7,6 +7,7 @@ import About from './pages/About';
 import Statistics from './pages/Statistics';
 import Marketing from './pages/Marketing';
 import DebugLogsModal from './components/DebugLogsModal';
+import BugReportModal from './components/BugReportModal';
 import { Analytics } from '@vercel/analytics/react';
 import './styles/index.css';
 
@@ -25,6 +26,7 @@ function App() {
         </main>
         <Footer />
         <DebugLogsModal />
+        <BugReportModal />
         <Analytics />
       </div>
     </Router>

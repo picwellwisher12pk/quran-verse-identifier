@@ -4,12 +4,14 @@ const FeedbackForm = ({ verseId, onSubmit, onCancel }) => {
   const [wasCorrect, setWasCorrect] = useState(null);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
 
     if (wasCorrect === null) {
-      alert('Please indicate whether the identification was correct');
+      setFormError('Please select whether the identification was correct or incorrect.');
       return;
     }
 
@@ -22,7 +24,7 @@ const FeedbackForm = ({ verseId, onSubmit, onCancel }) => {
       setComment('');
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      alert('Failed to submit feedback. Please try again.');
+      setFormError('Failed to submit feedback. Please try again or report via feedback.');
     } finally {
       setSubmitting(false);
     }
@@ -33,6 +35,19 @@ const FeedbackForm = ({ verseId, onSubmit, onCancel }) => {
       <h4 className="font-semibold text-gray-900 mb-3">
         Help us improve! Was this identification correct?
       </h4>
+
+      {formError && (
+        <div className="mb-3 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center justify-between">
+          <span>{formError}</span>
+          <button
+            type="button"
+            onClick={() => setFormError('')}
+            className="text-rose-500 font-bold ml-2 text-sm"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Correctness Rating */}
