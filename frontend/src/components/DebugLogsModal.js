@@ -12,7 +12,28 @@ const CATEGORY_COLORS = {
   AUDIO: 'bg-cyan-100 text-cyan-800 border-cyan-200',
 };
 
+// Check if debug flag is active via URL params or localStorage
+const isDebugFlagActive = () => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const stored = localStorage.getItem('qvi_debug');
+    if (stored === 'true' || stored === '1') return true;
+    const urlParams = new URLSearchParams(window.location.search);
+    return (
+      urlParams.get('debug') === 'true' ||
+      urlParams.get('debug') === '1' ||
+      urlParams.get('logs') === '1' ||
+      urlParams.get('logs') === 'true' ||
+      window.location.hash.includes('debug') ||
+      window.location.hash.includes('logs')
+    );
+  } catch (e) {
+    return false;
+  }
+};
+
 const DebugLogsModal = () => {
+  const [showUI, setShowUI] = useState(isDebugFlagActive);
   const [isOpen, setIsOpen] = useState(false);
   const [enabled, setEnabled] = useState(logger.isEnabled());
   const [logs, setLogs] = useState(logger.getLogs());
@@ -26,20 +47,48 @@ const DebugLogsModal = () => {
     const unsubscribe = logger.subscribe((updatedLogs, isEnabled) => {
       setLogs(updatedLogs);
       setEnabled(isEnabled);
+      if (isEnabled) {
+        setShowUI(true);
+      }
     });
     return unsubscribe;
   }, []);
 
-  // Keyboard shortcut: Ctrl + Shift + D to toggle logs panel
+  // Keyboard shortcut: Ctrl + Shift + D toggles logs panel & enables UI
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
         e.preventDefault();
+        setShowUI(true);
         setIsOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Global window listeners & console helpers
+  useEffect(() => {
+    const handleShow = () => {
+      setShowUI(true);
+      setIsOpen(true);
+    };
+    const handleHide = () => {
+      setShowUI(false);
+      setIsOpen(false);
+    };
+    window.addEventListener('show-debug-logs', handleShow);
+    window.addEventListener('hide-debug-logs', handleHide);
+
+    window.showDebugLogs = handleShow;
+    window.hideDebugLogs = handleHide;
+
+    return () => {
+      window.removeEventListener('show-debug-logs', handleShow);
+      window.removeEventListener('hide-debug-logs', handleHide);
+      delete window.showDebugLogs;
+      delete window.hideDebugLogs;
+    };
   }, []);
 
   // Auto-scroll to bottom of logs
@@ -91,30 +140,32 @@ const DebugLogsModal = () => {
 
   return (
     <>
-      {/* Floating Indicator Button (visible in bottom-right corner) */}
-      <div className="fixed bottom-4 right-4 z-50 flex items-center space-x-2">
-        <button
-          onClick={() => setIsOpen(true)}
-          className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-md transition-all border ${
-            errorCount > 0
-              ? 'bg-red-600 text-white border-red-700 animate-pulse'
-              : enabled
-              ? 'bg-slate-900 text-teal-400 border-slate-700'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
-          title="Diagnostic Logs (Ctrl+Shift+D)"
-        >
-          <FiTerminal className="text-sm" />
-          <span>Logs</span>
-          {errorCount > 0 ? (
-            <span className="bg-red-900 text-white px-1.5 py-0.2 rounded-full text-[10px]">
-              {errorCount} err
-            </span>
-          ) : (
-            <span className="text-[10px] opacity-75">{logs.length}</span>
-          )}
-        </button>
-      </div>
+      {/* Floating Indicator Button (ONLY visible when debug flag is turned on) */}
+      {showUI && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center space-x-2 animate-in fade-in duration-200">
+          <button
+            onClick={() => setIsOpen(true)}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-md transition-all border ${
+              errorCount > 0
+                ? 'bg-red-600 text-white border-red-700 animate-pulse'
+                : enabled
+                ? 'bg-slate-900 text-teal-400 border-slate-700'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            } cursor-pointer`}
+            title="Diagnostic Logs (Ctrl+Shift+D)"
+          >
+            <FiTerminal className="text-sm" />
+            <span>Logs</span>
+            {errorCount > 0 ? (
+              <span className="bg-red-900 text-white px-1.5 py-0.2 rounded-full text-[10px]">
+                {errorCount} err
+              </span>
+            ) : (
+              <span className="text-[10px] opacity-75">{logs.length}</span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Logs Drawer / Modal */}
       {isOpen && (
@@ -148,8 +199,21 @@ const DebugLogsModal = () => {
               {/* Actions */}
               <div className="flex items-center space-x-2">
                 <button
+                  type="button"
+                  onClick={() => {
+                    logger.disable();
+                    setShowUI(false);
+                    setIsOpen(false);
+                  }}
+                  className="text-xs px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-rose-300 hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700 cursor-pointer"
+                  title="Hide debug UI and turn off debug flag"
+                >
+                  Hide UI
+                </button>
+
+                <button
                   onClick={handleToggleLogging}
-                  className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors border ${
+                  className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors border cursor-pointer ${
                     enabled
                       ? 'bg-teal-600 hover:bg-teal-500 text-white border-teal-500'
                       : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600'

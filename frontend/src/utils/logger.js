@@ -65,7 +65,9 @@ class DiagnosticLogger {
           urlParams.get('debug') === 'true' ||
           urlParams.get('debug') === '1' ||
           urlParams.get('logs') === '1' ||
-          window.location.hash.includes('debug')
+          urlParams.get('logs') === 'true' ||
+          window.location.hash.includes('debug') ||
+          window.location.hash.includes('logs')
         ) {
           this.enable();
         }
@@ -86,7 +88,9 @@ class DiagnosticLogger {
         urlParams.get('debug') === 'true' ||
         urlParams.get('debug') === '1' ||
         urlParams.get('logs') === '1' ||
-        window.location.hash.includes('debug')
+        urlParams.get('logs') === 'true' ||
+        window.location.hash.includes('debug') ||
+        window.location.hash.includes('logs')
       );
     } catch (e) {
       return false;
@@ -113,6 +117,20 @@ class DiagnosticLogger {
     } catch (e) {}
     this._notifyListeners();
     console.log('[QVI:LOGGER] Diagnostic logging DISABLED.');
+  }
+
+  showUI() {
+    this.enable();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('show-debug-logs'));
+    }
+  }
+
+  hideUI() {
+    this.disable();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hide-debug-logs'));
+    }
   }
 
   toggle() {
